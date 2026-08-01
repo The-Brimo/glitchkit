@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin: 0; background: #0b0c10; color-scheme: dark; }
+</style>
+</helmet>
+<div style="width:100%; height:100vh; display:flex; align-items:center; justify-content:center; overflow:auto; background: radial-gradient(circle at 30% 20%, #23262f 0%, #0b0c10 60%);">
+<div style="width:1400px; height:860px; flex-shrink:0; border-radius:26px; overflow:hidden; background:#1d1e22; box-shadow:0 0 0 1px rgba(0,0,0,0.23), 0 30px 80px rgba(0,0,0,0.55); display:flex; position:relative; font-family:-apple-system,BlinkMacSystemFont,'SF Pro','Helvetica Neue',sans-serif;">
+
+  <x-import component-from-global-scope="MacSidebar" from="./macos-window.jsx" style="height:100%;" hint-size="220,860">
+    <x-import component-from-global-scope="MacSidebarHeader" from="./macos-window.jsx" title="Pipeline" hint-size="200,24"></x-import>
+
+    <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="3">
+      <div onClick="{{ item.onSelect }}" style="cursor:pointer; opacity:{{ item.navOpacity }};">
+        <x-import component-from-global-scope="MacSidebarItem" from="./macos-window.jsx" label="{{ item.label }}" selected="{{ item.selected }}" hint-size="200,24"></x-import>
+      </div>
+    </sc-for>
+
+    <x-import component-from-global-scope="MacSidebarHeader" from="./macos-window.jsx" title="Snapshots" hint-size="200,24"></x-import>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; padding:2px 18px 10px;">
+      <sc-for list="{{ snapshots }}" as="snap" hint-placeholder-count="3">
+        <div onClick="{{ snap.onRestore }}" title="{{ snap.title }}" style="width:52px; cursor:pointer;">
+          <div style="{{ snap.thumbStyle }}"></div>
+          <div style="font-size:9px; color:rgba(255,255,255,0.45); margin-top:3px; text-align:center; font-family:'SF Mono',ui-monospace,monospace;">{{ snap.label }}</div>
+        </div>
+      </sc-for>
+      <sc-if value="{{ noSnapshots }}" hint-placeholder-val="{{ true }}">
+        <div style="font-size:10px; color:rgba(255,255,255,0.3); line-height:1.5;">No snapshots yet — hit Snapshot to keep a result with its settings.</div>
+      </sc-if>
+    </div>
+  </x-import>
+
+  <div style="flex:1; display:flex; flex-direction:column; height:100%;">
+    <x-import component-from-global-scope="MacToolbar" from="./macos-window.jsx" title="glitchkit — basegen" style="height:52px; flex-shrink:0;" hint-size="100%,52"></x-import>
+
+    <div style="flex:1; display:flex; min-height:0; padding:0 8px 8px;">
+
+      <!-- Center preview canvas -->
+      <div style="flex:1; margin:0 8px 0 0; border-radius:18px; background:#151519; display:flex; flex-direction:column; overflow:hidden; position:relative;">
+        <div style="flex:1; margin:24px; border-radius:10px; overflow:hidden; position:relative; box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+          <div style="position:absolute; inset:0; background:{{ previewGradient }};"></div>
+          <sc-if value="{{ hasImage }}" hint-placeholder-val="{{ false }}">
+            <img src="{{ imageSrc }}" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;" />
+          </sc-if>
+          <sc-if value="{{ needsImage }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#101013; font-family:'SF Mono',ui-monospace,monospace; font-size:12px; color:rgba(255,255,255,0.4);">no source image — choose one in the inspector</div>
+          </sc-if>
+          <sc-for list="{{ overlays }}" as="o" hint-placeholder-count="0">
+            <div style="{{ o.style }}"></div>
+          </sc-for>
+        </div>
+        <div style="position:absolute; left:36px; bottom:20px; font-family:'SF Mono',ui-monospace,monospace; font-size:11px; letter-spacing:0.02em; color:rgba(255,255,255,0.55);">{{ previewLabel }}</div>
+        <div style="position:absolute; left:36px; top:16px; font-family:'SF Mono',ui-monospace,monospace; font-size:11px; color:rgba(255,255,255,0.3);">preview — not final render</div>
+      </div>
+
+      <!-- Right inspector -->
+      <x-import component-from-global-scope="MacGlass" from="./macos-window.jsx" radius="{{ 18 }}" dark="{{ true }}" fill="{{ true }}" style="width:300px; height:100%; flex-shrink:0;" hint-size="300,100%">
+        <div style="padding:18px 18px 24px; display:flex; flex-direction:column; gap:0;">
+
+          <!-- SOURCE -->
+          <sc-if value="{{ isSourceSelected }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <div style="font-size:11px; font-weight:700; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:10px;">Source</div>
+
+              <div style="display:flex; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.14); margin-bottom:16px;">
+                <div onClick="{{ setSourceGenerate }}" style="flex:1; text-align:center; padding:7px 0; font-size:12px; cursor:pointer; background:{{ genModeBg }}; color:{{ genModeColor }};">Generate</div>
+                <div onClick="{{ setSourceImport }}" style="flex:1; text-align:center; padding:7px 0; font-size:12px; cursor:pointer; background:{{ importModeBg }}; color:{{ importModeColor }};">Open image</div>
+              </div>
+
+              <sc-if value="{{ isImportMode }}" hint-placeholder-val="{{ false }}">
+                <div style="border:1px dashed rgba(255,255,255,0.22); border-radius:12px; padding:18px 14px; display:flex; flex-direction:column; align-items:center; gap:8px; margin-bottom:16px; background:rgba(255,255,255,0.03);">
+                  <div style="font-family:'SF Mono',ui-monospace,monospace; font-size:11px; color:rgba(255,255,255,0.5); text-align:center;">{{ importCaption }}</div>
+                  <label style="height:30px; padding:0 14px; border-radius:8px; background:rgba(255,255,255,0.12); color:#f2f2f7; font-size:12px; font-weight:600; display:flex; align-items:center; cursor:pointer;">
+                    Choose image…
+                    <input type="file" accept="image/*" onChange="{{ onFile }}" style="display:none;" />
+                  </label>
+                  <div style="font-size:10px; color:rgba(255,255,255,0.35); text-align:center; line-height:1.5;">PNG or JPEG. Pixel sort runs directly; databend converts to JPEG first.</div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isGenerateMode }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Generator</label>
+                  <select value="{{ generator }}" onChange="{{ setGenerator }}" style="height:30px; border-radius:8px; border:1px solid rgba(255,255,255,0.14); font-size:13px; padding:0 8px; background:rgba(255,255,255,0.07); color:#f2f2f7;">
+                    <option value="noise">noise</option>
+                    <option value="reaction">reaction</option>
+                  </select>
+                </div>
+
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+                  <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+                    <label style="font-size:11px; color:rgba(255,255,255,0.55);">Seed</label>
+                    <input type="number" value="{{ seed }}" onChange="{{ setSeed }}" style="height:30px; border-radius:8px; border:1px solid rgba(255,255,255,0.14); font-size:13px; padding:0 8px; background:rgba(255,255,255,0.07); color:#f2f2f7;" />
+                  </div>
+                  <div onClick="{{ shuffleSeed }}" style="width:30px; height:30px; margin-top:20px; border-radius:8px; background:rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:15px; color:#f2f2f7;">⟳</div>
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Size</label>
+                  <input type="text" value="{{ size }}" onChange="{{ setSize }}" style="height:30px; border-radius:8px; border:1px solid rgba(255,255,255,0.14); font-size:13px; padding:0 8px; background:rgba(255,255,255,0.07); color:#f2f2f7;" />
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Palette</label>
+                  <div style="display:flex; gap:8px;">
+                    <sc-for list="{{ palettes }}" as="p" hint-placeholder-count="5">
+                      <div onClick="{{ p.onSelect }}" title="{{ p.name }}" style="width:32px; height:32px; border-radius:10px; background:{{ p.gradient }}; cursor:pointer; box-shadow:{{ p.ring }};"></div>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:6px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Gamma — {{ gamma }}</label>
+                  <input type="range" min="0.5" max="2.5" step="0.1" value="{{ gamma }}" onChange="{{ setGamma }}" />
+                </div>
+
+                <div onClick="{{ toggleInvert }}" style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; margin-bottom:16px;">
+                  <label style="font-size:12px; color:rgba(255,255,255,0.8);">Invert</label>
+                  <div style="width:36px; height:20px; border-radius:10px; background:{{ invertTrackColor }}; position:relative;">
+                    <div style="position:absolute; top:2px; left:{{ invertKnobLeft }}px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.3);"></div>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isNoise }}" hint-placeholder-val="{{ true }}">
+                <div style="height:1px; background:rgba(255,255,255,0.1); margin:4px 0 14px;"></div>
+                <div style="font-size:11px; font-weight:700; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:10px;">Noise params</div>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Octaves — {{ octaves }}</label>
+                  <input type="range" min="3" max="8" step="1" value="{{ octaves }}" onChange="{{ setOctaves }}" />
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Freq — {{ freq }}</label>
+                  <input type="range" min="1" max="10" step="1" value="{{ freq }}" onChange="{{ setFreq }}" />
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Warp — {{ warp }}</label>
+                  <input type="range" min="0" max="2" step="0.1" value="{{ warp }}" onChange="{{ setWarp }}" />
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ isReaction }}" hint-placeholder-val="{{ false }}">
+                <div style="height:1px; background:rgba(255,255,255,0.1); margin:4px 0 14px;"></div>
+                <div style="font-size:11px; font-weight:700; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:10px;">Reaction params</div>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Preset</label>
+                  <select value="{{ preset }}" onChange="{{ setPreset }}" style="height:30px; border-radius:8px; border:1px solid rgba(255,255,255,0.14); font-size:13px; padding:0 8px; background:rgba(255,255,255,0.07); color:#f2f2f7;">
+                    <option value="coral">coral</option>
+                    <option value="maze">maze</option>
+                    <option value="spots">spots</option>
+                    <option value="mitosis">mitosis</option>
+                    <option value="fingerprint">fingerprint</option>
+                    <option value="flower">flower</option>
+                  </select>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Steps — {{ steps }}</label>
+                  <input type="range" min="1000" max="10000" step="500" value="{{ steps }}" onChange="{{ setSteps }}" />
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Sim detail — {{ sim }}</label>
+                  <input type="range" min="100" max="300" step="10" value="{{ sim }}" onChange="{{ setSim }}" />
+                </div>
+                <div style="margin-top:10px; font-size:11px; color:rgba(255,255,255,0.4); font-style:italic;">slower — real simulation, ~10–15s per render</div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <!-- TRANSFORM STEP -->
+          <sc-if value="{{ isStepSelected }}" hint-placeholder-val="{{ false }}">
+            <div>
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+                <div style="font-size:11px; font-weight:700; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:0.04em;">{{ selLabel }}</div>
+                <div onClick="{{ toggleSelEnabled }}" style="width:36px; height:20px; border-radius:10px; background:{{ selTrackColor }}; position:relative; cursor:pointer;">
+                  <div style="position:absolute; top:2px; left:{{ selKnobLeft }}px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.3);"></div>
+                </div>
+              </div>
+
+              <!-- Pixel sort -->
+              <sc-if value="{{ selIsSort }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Direction</label>
+                  <select value="{{ selDirection }}" onChange="{{ setDirection }}" style="height:30px; border-radius:8px; border:1px solid rgba(255,255,255,0.14); font-size:13px; padding:0 8px; background:rgba(255,255,255,0.07); color:#f2f2f7;">
+                    <option value="vertical">vertical</option>
+                    <option value="horizontal">horizontal</option>
+                  </select>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Low threshold — {{ selLow }}</label>
+                  <input type="range" min="0" max="255" step="1" value="{{ selLow }}" onChange="{{ setLow }}" />
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">High threshold — {{ selHigh }}</label>
+                  <input type="range" min="0" max="255" step="1" value="{{ selHigh }}" onChange="{{ setHigh }}" />
+                </div>
+              </sc-if>
+
+              <!-- Databend -->
+              <sc-if value="{{ selIsBend }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Mode</label>
+                  <select value="{{ selMode }}" onChange="{{ setMode }}" style="height:30px; border-radius:8px; border:1px solid rgba(255,255,255,0.14); font-size:13px; padding:0 8px; background:rgba(255,255,255,0.07); color:#f2f2f7;">
+                    <option value="random">random</option>
+                    <option value="shift">shift</option>
+                    <option value="reverse">reverse</option>
+                  </select>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Amount — {{ selAmount }}</label>
+                  <input type="range" min="0" max="500" step="10" value="{{ selAmount }}" onChange="{{ setAmount }}" />
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Seed</label>
+                  <input type="number" value="{{ selSeed }}" onChange="{{ setStepSeed }}" style="height:30px; border-radius:8px; border:1px solid rgba(255,255,255,0.14); font-size:13px; padding:0 8px; background:rgba(255,255,255,0.07); color:#f2f2f7;" />
+                </div>
+                <div style="margin-top:12px; font-size:11px; color:rgba(255,255,255,0.4); font-style:italic;">requires a JPEG — converted automatically before bending</div>
+              </sc-if>
+
+              <!-- Channel shift -->
+              <sc-if value="{{ selIsChannel }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Channel</label>
+                  <select value="{{ selChannel }}" onChange="{{ setChannel }}" style="height:30px; border-radius:8px; border:1px solid rgba(255,255,255,0.14); font-size:13px; padding:0 8px; background:rgba(255,255,255,0.07); color:#f2f2f7;">
+                    <option value="red">red</option>
+                    <option value="green">green</option>
+                    <option value="blue">blue</option>
+                  </select>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Shift X — {{ selDx }} px</label>
+                  <input type="range" min="-60" max="60" step="1" value="{{ selDx }}" onChange="{{ setDx }}" />
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Shift Y — {{ selDy }} px</label>
+                  <input type="range" min="-60" max="60" step="1" value="{{ selDy }}" onChange="{{ setDy }}" />
+                </div>
+              </sc-if>
+
+              <!-- Displace -->
+              <sc-if value="{{ selIsDisplace }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Axis</label>
+                  <select value="{{ selAxis }}" onChange="{{ setAxis }}" style="height:30px; border-radius:8px; border:1px solid rgba(255,255,255,0.14); font-size:13px; padding:0 8px; background:rgba(255,255,255,0.07); color:#f2f2f7;">
+                    <option value="rows">rows</option>
+                    <option value="columns">columns</option>
+                  </select>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Max offset — {{ selDispAmount }} px</label>
+                  <input type="range" min="0" max="120" step="2" value="{{ selDispAmount }}" onChange="{{ setDispAmount }}" />
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Noise scale — {{ selDispScale }}</label>
+                  <input type="range" min="1" max="20" step="1" value="{{ selDispScale }}" onChange="{{ setDispScale }}" />
+                </div>
+              </sc-if>
+
+              <!-- Byte ops -->
+              <sc-if value="{{ selIsByte }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Operation</label>
+                  <select value="{{ selOp }}" onChange="{{ setOp }}" style="height:30px; border-radius:8px; border:1px solid rgba(255,255,255,0.14); font-size:13px; padding:0 8px; background:rgba(255,255,255,0.07); color:#f2f2f7;">
+                    <option value="xor">xor</option>
+                    <option value="rotate">bit rotate</option>
+                    <option value="and">and mask</option>
+                    <option value="add">add</option>
+                  </select>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Value — {{ selValue }}</label>
+                  <input type="range" min="0" max="255" step="1" value="{{ selValue }}" onChange="{{ setValue }}" />
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Coverage — {{ selCoverage }}%</label>
+                  <input type="range" min="0" max="100" step="1" value="{{ selCoverage }}" onChange="{{ setCoverage }}" />
+                </div>
+                <div style="margin-top:12px; font-size:11px; color:rgba(255,255,255,0.4); font-style:italic;">header bytes are preserved — file stays openable</div>
+              </sc-if>
+
+              <!-- Audio Lab -->
+              <sc-if value="{{ selIsAudio }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Effect</label>
+                  <select value="{{ selEffect }}" onChange="{{ setEffect }}" style="height:30px; border-radius:8px; border:1px solid rgba(255,255,255,0.14); font-size:13px; padding:0 8px; background:rgba(255,255,255,0.07); color:#f2f2f7;">
+                    <option value="echo">echo / delay</option>
+                    <option value="reverb">reverb</option>
+                    <option value="bitcrush">bitcrush</option>
+                    <option value="reverse">reverse</option>
+                    <option value="amplify">amplify + clip</option>
+                    <option value="phaser">phaser</option>
+                  </select>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">{{ selTimeLabel }} — {{ selTime }}</label>
+                  <input type="range" min="0" max="100" step="1" value="{{ selTime }}" onChange="{{ setTime }}" />
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">{{ selDepthLabel }} — {{ selDepth }}</label>
+                  <input type="range" min="0" max="100" step="1" value="{{ selDepth }}" onChange="{{ setDepth }}" />
+                </div>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
+                  <label style="font-size:11px; color:rgba(255,255,255,0.55);">Dry / wet mix — {{ selMix }}%</label>
+                  <input type="range" min="0" max="100" step="1" value="{{ selMix }}" onChange="{{ setMix }}" />
+                </div>
+                <div onClick="{{ toggleLockLength }}" style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; margin-bottom:10px;">
+                  <label style="font-size:12px; color:rgba(255,255,255,0.8);">Lock byte length</label>
+                  <div style="width:36px; height:20px; border-radius:10px; background:{{ selLockTrack }}; position:relative;">
+                    <div style="position:absolute; top:2px; left:{{ selLockKnob }}px; width:16px; height:16px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.3);"></div>
+                  </div>
+                </div>
+                <div style="font-size:11px; color:rgba(255,255,255,0.4); font-style:italic; line-height:1.5;">pixel bytes are treated as headerless PCM, processed, then written back — no Audacity round-trip needed. Header is always preserved.</div>
+              </sc-if>
+
+              <div style="height:1px; background:rgba(255,255,255,0.1); margin:16px 0 14px;"></div>
+              <div style="font-size:11px; font-weight:700; color:rgba(255,255,255,0.5); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:10px;">Compositing</div>
+              <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px;">
+                <label style="font-size:11px; color:rgba(255,255,255,0.55);">Blend mode</label>
+                <select value="{{ selBlend }}" onChange="{{ setBlend }}" style="height:30px; border-radius:8px; border:1px solid rgba(255,255,255,0.14); font-size:13px; padding:0 8px; background:rgba(255,255,255,0.07); color:#f2f2f7;">
+                  <option value="normal">normal</option>
+                  <option value="screen">screen</option>
+                  <option value="multiply">multiply</option>
+                  <option value="overlay">overlay</option>
+                  <option value="difference">difference</option>
+                  <option value="lighten">lighten</option>
+                  <option value="darken">darken</option>
+                </select>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:16px;">
+                <label style="font-size:11px; color:rgba(255,255,255,0.55);">Opacity — {{ selOpacity }}%</label>
+                <input type="range" min="0" max="100" step="1" value="{{ selOpacity }}" onChange="{{ setOpacity }}" />
+              </div>
+
+              <div onClick="{{ removeSelected }}" style="height:32px; border-radius:8px; border:1px solid rgba(255,69,58,0.4); color:#ff6961; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; cursor:pointer;">Remove step</div>
+            </div>
+          </sc-if>
+
+          <div style="height:1px; background:rgba(255,255,255,0.1); margin:18px 0 14px;"></div>
+          <div style="display:flex; gap:8px;">
+            <div onClick="{{ takeSnapshot }}" style="flex:1; height:38px; border-radius:10px; background:rgba(255,255,255,0.12); color:#f2f2f7; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; cursor:pointer;">Snapshot</div>
+            <div onClick="{{ renderNow }}" style="flex:1; height:38px; border-radius:10px; background:#0a84ff; color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; cursor:pointer;">Render</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- Pipeline strip -->
+    <div style="height:64px; flex-shrink:0; display:flex; align-items:center; gap:10px; padding:0 24px 14px; overflow-x:auto;">
+      <sc-for list="{{ chips }}" as="item" hint-placeholder-count="3">
+        <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+          <div draggable="{{ item.draggable }}" onDragStart="{{ item.onDragStart }}" onDragOver="{{ item.onDragOver }}" onDrop="{{ item.onDrop }}" onClick="{{ item.onSelect }}" style="display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:12px; background:{{ item.chipBg }}; border:{{ item.chipBorder }}; opacity:{{ item.chipOpacity }}; cursor:{{ item.cursor }};">
+            <div style="width:7px; height:7px; border-radius:50%; background:{{ item.dotColor }};"></div>
+            <span style="font-size:12px; font-weight:600; color:rgba(255,255,255,0.85); white-space:nowrap;">{{ item.label }}</span>
+            <sc-if value="{{ item.removable }}" hint-placeholder-val="{{ true }}">
+              <div onClick="{{ item.onToggle }}" title="enable / bypass" style="width:26px; height:15px; border-radius:8px; background:{{ item.trackColor }}; position:relative; margin-left:2px;">
+                <div style="position:absolute; top:1.5px; left:{{ item.knobLeft }}px; width:12px; height:12px; border-radius:50%; background:#fff;"></div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ item.removable }}" hint-placeholder-val="{{ true }}">
+              <div onClick="{{ item.onRemove }}" title="remove" style="width:16px; height:16px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; line-height:1; color:rgba(255,255,255,0.4);">×</div>
+            </sc-if>
+          </div>
+          <span style="color:rgba(255,255,255,0.28); font-size:14px;">→</span>
+        </div>
+      </sc-for>
+
+      <select value="{{ addValue }}" onChange="{{ onAddStep }}" style="flex-shrink:0; height:34px; border-radius:12px; border:1px dashed rgba(255,255,255,0.25); background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.7); font-size:12px; padding:0 10px;">
+        <option value="">+ Add transform</option>
+        <option value="pixelsort">Pixel Sort</option>
+        <option value="databend">Databend</option>
+        <option value="channelshift">Channel Shift</option>
+        <option value="displace">Row / Column Displace</option>
+        <option value="byteops">Byte Ops</option>
+        <option value="audiolab">Audio Lab</option>
+      </select>
+    </div>
+  </div>
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const TYPES = {
+  pixelsort: { label: 'Pixel Sort', defaults: { direction: 'vertical', low: 25, high: 140 } },
+  databend: { label: 'Databend', defaults: { mode: 'random', amount: 250, seed: 7 } },
+  channelshift: { label: 'Channel Shift', defaults: { channel: 'red', dx: 12, dy: 0 } },
+  displace: { label: 'Displace', defaults: { axis: 'rows', amount: 24, scale: 5 } },
+  byteops: { label: 'Byte Ops', defaults: { op: 'xor', value: 85, coverage: 40 } },
+  audiolab: { label: 'Audio Lab', defaults: { effect: 'echo', mix: 60, time: 35, depth: 50, lockLength: true } },
+};
+const AUDIO_LABELS = {
+  echo: { time: 'Delay', depth: 'Feedback' },
+  reverb: { time: 'Room size', depth: 'Decay' },
+  bitcrush: { time: 'Bit depth', depth: 'Sample crush' },
+  reverse: { time: 'Segment size', depth: 'Segments affected' },
+  amplify: { time: 'Gain', depth: 'Clipping' },
+  phaser: { time: 'Rate', depth: 'Sweep depth' },
+};
+const CH_HUE = { red: 0, green: 110, blue: 220 };
+
+class Component extends DCLogic {
+  nextUid = 100;
+  dragUid = null;
+
+  state = {
+    selectedStep: 'source', addValue: '',
+    sourceMode: 'generate', imageSrc: null, imageName: null,
+    generator: 'noise', seed: 7, size: '1600x900', palette: 'ember', gamma: 1.0, invert: false,
+    octaves: 6, freq: 4, warp: 1.2,
+    preset: 'coral', steps: 5000, sim: 200,
+    chain: [
+      { uid: 1, type: 'pixelsort', enabled: true, blend: 'normal', opacity: 100, params: { ...TYPES.pixelsort.defaults } },
+      { uid: 2, type: 'channelshift', enabled: false, blend: 'screen', opacity: 70, params: { ...TYPES.channelshift.defaults } },
+    ],
+    snapshots: [],
+  };
+
+  patchStep(uid, patch) {
+    this.setState(s => ({ chain: s.chain.map(st => st.uid === uid ? { ...st, ...patch } : st) }));
+  }
+  patchParam(uid, key, val) {
+    this.setState(s => ({ chain: s.chain.map(st => st.uid === uid ? { ...st, params: { ...st.params, [key]: val } } : st) }));
+  }
+  moveStep(fromUid, toUid) {
+    if (fromUid === toUid) return;
+    this.setState(s => {
+      const chain = [...s.chain];
+      const fi = chain.findIndex(x => x.uid === fromUid);
+      const ti = chain.findIndex(x => x.uid === toUid);
+      if (fi < 0 || ti < 0) return null;
+      const [moved] = chain.splice(fi, 1);
+      chain.splice(ti, 0, moved);
+      return { chain };
+    });
+  }
+
+  overlayFor(step, ctx) {
+    const p = step.params;
+    const base = {
+      position: 'absolute', inset: 0, pointerEvents: 'none',
+      opacity: step.opacity / 100,
+      mixBlendMode: step.blend === 'normal' ? undefined : step.blend,
+    };
+    if (step.type === 'pixelsort') {
+      const ang = p.direction === 'vertical' ? 90 : 0;
+      const gap = Math.max(4, Math.round(28 - (p.high - p.low) / 12));
+      return { ...base, opacity: base.opacity * 0.35, mixBlendMode: step.blend === 'normal' ? 'screen' : step.blend,
+        backgroundImage: `repeating-linear-gradient(${ang}deg, rgba(255,255,255,0.85) 0px, rgba(255,255,255,0.85) 1px, transparent 1px, transparent ${gap}px)` };
+    }
+    if (step.type === 'databend') {
+      const w = Math.max(2, Math.round(p.amount / 40));
+      return { ...base, opacity: base.opacity * 0.3, mixBlendMode: step.blend === 'normal' ? 'difference' : step.blend,
+        backgroundImage: `repeating-linear-gradient(90deg, #ff2fd0 0 ${w}px, transparent ${w}px ${w * 4}px)` };
+    }
+    if (step.type === 'channelshift') {
+      const hue = CH_HUE[p.channel] || 0;
+      const s = { ...base, mixBlendMode: step.blend === 'normal' ? 'screen' : step.blend,
+        transform: `translate(${p.dx}px, ${p.dy}px)`, filter: `saturate(2.5) hue-rotate(${hue}deg)` };
+      if (ctx.imageSrc) return { ...s, backgroundImage: `url(${ctx.imageSrc})`, backgroundSize: 'cover', backgroundPosition: 'center' };
+      return { ...s, background: ctx.gradient };
+    }
+    if (step.type === 'displace') {
+      const band = Math.max(6, 120 / p.scale);
+      const ang = p.axis === 'rows' ? 0 : 90;
+      return { ...base, opacity: base.opacity * 0.5, mixBlendMode: step.blend === 'normal' ? 'overlay' : step.blend,
+        backgroundImage: `repeating-linear-gradient(${ang}deg, rgba(0,0,0,0.5) 0px, rgba(0,0,0,0.5) ${band / 2}px, rgba(255,255,255,0.35) ${band / 2}px, rgba(255,255,255,0.35) ${band}px)`,
+        transform: p.axis === 'rows' ? `translateX(${p.amount / 4}px)` : `translateY(${p.amount / 4}px)` };
+    }
+    if (step.type === 'audiolab') {
+      const src = ctx.imageSrc ? { backgroundImage: `url(${ctx.imageSrc})`, backgroundSize: 'cover', backgroundPosition: 'center' } : { background: ctx.gradient };
+      const mix = base.opacity * (p.mix / 100);
+      if (p.effect === 'echo') {
+        return { ...base, ...src, opacity: mix * 0.8, mixBlendMode: step.blend === 'normal' ? 'screen' : step.blend,
+          transform: `translateX(${p.time}px)`, filter: `brightness(${0.6 + p.depth / 200})` };
+      }
+      if (p.effect === 'reverb') {
+        return { ...base, ...src, opacity: mix * 0.85, mixBlendMode: step.blend === 'normal' ? 'lighten' : step.blend,
+          filter: `blur(${2 + p.time / 4}px) saturate(${1 + p.depth / 100})` };
+      }
+      if (p.effect === 'reverse') {
+        return { ...base, ...src, opacity: mix * 0.7, mixBlendMode: step.blend === 'normal' ? 'difference' : step.blend,
+          transform: `scaleX(-1) translateX(${-p.time / 3}px)` };
+      }
+      if (p.effect === 'bitcrush') {
+        const band = Math.max(4, Math.round(40 - p.time / 3));
+        return { ...base, opacity: mix * 0.55, mixBlendMode: step.blend === 'normal' ? 'overlay' : step.blend,
+          backgroundImage: `repeating-linear-gradient(0deg, rgba(0,0,0,0.65) 0 ${band}px, rgba(255,255,255,0.5) ${band}px ${band * 2}px)` };
+      }
+      if (p.effect === 'amplify') {
+        return { ...base, opacity: mix * 0.6, mixBlendMode: step.blend === 'normal' ? 'screen' : step.blend,
+          backgroundImage: `repeating-linear-gradient(0deg, rgba(255,255,255,${0.15 + p.depth / 300}) 0 ${8 + p.time / 4}px, transparent ${8 + p.time / 4}px ${20 + p.time / 2}px)` };
+      }
+      const wave = Math.max(8, 90 - p.time / 2);
+      return { ...base, ...src, opacity: mix * 0.7, mixBlendMode: step.blend === 'normal' ? 'overlay' : step.blend,
+        transform: `skewY(${p.depth / 25}deg) translateY(${p.time / 8}px)`,
+        maskImage: `repeating-linear-gradient(0deg, #000 0 ${wave / 2}px, transparent ${wave / 2}px ${wave}px)`,
+        WebkitMaskImage: `repeating-linear-gradient(0deg, #000 0 ${wave / 2}px, transparent ${wave / 2}px ${wave}px)` };
+    }
+    if (step.type === 'byteops') {
+      const size = 3 + (p.value % 9);
+      return { ...base, opacity: base.opacity * (p.coverage / 200), mixBlendMode: step.blend === 'normal' ? 'difference' : step.blend,
+        backgroundImage: `repeating-linear-gradient(45deg, #fff 0 ${size}px, #000 ${size}px ${size * 2}px), repeating-linear-gradient(-45deg, #fff 0 ${size * 2}px, transparent ${size * 2}px ${size * 3}px)` };
+    }
+    return base;
+  }
+
+  renderVals() {
+    const s = this.state;
+    const set = (patch) => this.setState(patch);
+
+    const palettesRaw = [
+      { name: 'ember', from: '#0f6b66', to: '#ff8a3d' },
+      { name: 'ice', from: '#0a2a5e', to: '#eef6ff' },
+      { name: 'magma', from: '#3b0764', to: '#facc15' },
+      { name: 'acid', from: '#14532d', to: '#a3e635' },
+      { name: 'mono', from: '#111111', to: '#f5f5f5' },
+    ];
+    const palettes = palettesRaw.map(p => ({
+      ...p,
+      gradient: `linear-gradient(135deg, ${p.from}, ${p.to})`,
+      ring: s.palette === p.name ? '0 0 0 2px #1d1e22, 0 0 0 4px #0a84ff' : '0 0 0 1px rgba(255,255,255,0.15)',
+      onSelect: () => set({ palette: p.name }),
+    }));
+
+    const active = palettesRaw.find(p => p.name === s.palette) || palettesRaw[0];
+    const angle = (s.seed * 37) % 360;
+    const from = s.invert ? active.to : active.from;
+    const to = s.invert ? active.from : active.to;
+    const midStop = Math.max(20, Math.min(80, 50 / s.gamma));
+    const previewGradient = `linear-gradient(${angle}deg, ${from} 0%, ${from} ${midStop * 0.4}%, ${to} 100%)`;
+
+    const hasImage = s.sourceMode === 'import' && !!s.imageSrc;
+    const needsImage = s.sourceMode === 'import' && !s.imageSrc;
+
+    const overlays = needsImage ? [] : s.chain.filter(st => st.enabled)
+      .map(st => ({ key: st.uid, style: this.overlayFor(st, { imageSrc: hasImage ? s.imageSrc : null, gradient: previewGradient }) }));
+
+    const sourceLabel = s.sourceMode === 'import' ? 'Source Image' : 'Generate';
+    const navItems = [
+      { key: 'source', label: sourceLabel, selected: s.selectedStep === 'source', navOpacity: 1, onSelect: () => set({ selectedStep: 'source' }) },
+      ...s.chain.map(st => ({
+        key: st.uid, label: TYPES[st.type].label, selected: s.selectedStep === st.uid,
+        navOpacity: st.enabled ? 1 : 0.45, onSelect: () => set({ selectedStep: st.uid }),
+      })),
+    ];
+
+    const chips = [
+      {
+        key: 'source', label: sourceLabel, removable: false, draggable: false, cursor: 'pointer',
+        chipBg: s.selectedStep === 'source' ? 'rgba(10,132,255,0.16)' : 'rgba(255,255,255,0.06)',
+        chipBorder: s.selectedStep === 'source' ? '1px solid rgba(10,132,255,0.5)' : '1px solid rgba(255,255,255,0.1)',
+        chipOpacity: 1, dotColor: '#19c332', trackColor: 'transparent', knobLeft: 1.5,
+        onSelect: () => set({ selectedStep: 'source' }),
+        onDragStart: () => {}, onDragOver: (e) => e.preventDefault(), onDrop: () => {},
+      },
+      ...s.chain.map(st => ({
+        key: st.uid, label: TYPES[st.type].label, removable: true, draggable: true, cursor: 'grab',
+        chipBg: s.selectedStep === st.uid ? 'rgba(10,132,255,0.16)' : 'rgba(255,255,255,0.06)',
+        chipBorder: s.selectedStep === st.uid ? '1px solid rgba(10,132,255,0.5)' : '1px solid rgba(255,255,255,0.1)',
+        chipOpacity: st.enabled ? 1 : 0.45,
+        dotColor: st.enabled ? '#19c332' : 'rgba(255,255,255,0.3)',
+        trackColor: st.enabled ? '#34c759' : 'rgba(120,120,128,0.4)',
+        knobLeft: st.enabled ? 12 : 1.5,
+        onSelect: () => set({ selectedStep: st.uid }),
+        onToggle: (e) => { e.stopPropagation(); this.patchStep(st.uid, { enabled: !st.enabled }); },
+        onRemove: (e) => { e.stopPropagation(); this.setState(prev => ({ chain: prev.chain.filter(x => x.uid !== st.uid), selectedStep: prev.selectedStep === st.uid ? 'source' : prev.selectedStep })); },
+        onDragStart: () => { this.dragUid = st.uid; },
+        onDragOver: (e) => e.preventDefault(),
+        onDrop: (e) => { e.preventDefault(); if (this.dragUid != null) this.moveStep(this.dragUid, st.uid); this.dragUid = null; },
+      })),
+    ];
+
+    const sel = s.chain.find(st => st.uid === s.selectedStep) || null;
+    const sp = sel ? sel.params : {};
+    const pp = (key) => (e) => this.patchParam(sel.uid, key, e.target.value);
+    const pn = (key) => (e) => this.patchParam(sel.uid, key, parseInt(e.target.value) || 0);
+
+    const snapshots = s.snapshots.map(sn => ({
+      label: sn.label, title: sn.title,
+      thumbStyle: { width: 52, height: 40, borderRadius: 6, background: sn.thumb, backgroundSize: 'cover', backgroundPosition: 'center', boxShadow: '0 0 0 1px rgba(255,255,255,0.12)' },
+      onRestore: () => this.setState({ ...sn.state, snapshots: s.snapshots }),
+    }));
+
+    return {
+      ...s,
+      palettes, previewGradient, overlays, navItems, chips, snapshots,
+      noSnapshots: s.snapshots.length === 0,
+      previewLabel: s.sourceMode === 'import'
+        ? `${s.imageName || 'no image'} · imported · ${s.chain.filter(x => x.enabled).length} transform(s)`
+        : `${s.generator} · seed ${s.seed} · ${s.palette} · ${s.size} · ${s.chain.filter(x => x.enabled).length} transform(s)`,
+      hasImage, needsImage,
+      isSourceSelected: s.selectedStep === 'source',
+      isStepSelected: !!sel,
+      selLabel: sel ? TYPES[sel.type].label : '',
+      selTrackColor: sel && sel.enabled ? '#34c759' : 'rgba(120,120,128,0.32)',
+      selKnobLeft: sel && sel.enabled ? 18 : 2,
+      selBlend: sel ? sel.blend : 'normal',
+      selOpacity: sel ? sel.opacity : 100,
+      selIsSort: !!sel && sel.type === 'pixelsort',
+      selIsBend: !!sel && sel.type === 'databend',
+      selIsChannel: !!sel && sel.type === 'channelshift',
+      selIsDisplace: !!sel && sel.type === 'displace',
+      selIsByte: !!sel && sel.type === 'byteops',
+      selDirection: sp.direction, selLow: sp.low, selHigh: sp.high,
+      selMode: sp.mode, selAmount: sp.amount, selSeed: sp.seed,
+      selChannel: sp.channel, selDx: sp.dx, selDy: sp.dy,
+      selAxis: sp.axis, selDispAmount: sp.amount, selDispScale: sp.scale,
+      selOp: sp.op, selValue: sp.value, selCoverage: sp.coverage,
+      selIsAudio: !!sel && sel.type === 'audiolab',
+      selEffect: sp.effect, selMix: sp.mix, selTime: sp.time, selDepth: sp.depth,
+      selTimeLabel: sp.effect ? AUDIO_LABELS[sp.effect].time : '',
+      selDepthLabel: sp.effect ? AUDIO_LABELS[sp.effect].depth : '',
+      selLockTrack: sp.lockLength ? '#34c759' : 'rgba(120,120,128,0.32)',
+      selLockKnob: sp.lockLength ? 18 : 2,
+      setEffect: sel ? pp('effect') : null,
+      setMix: sel ? pn('mix') : null,
+      setTime: sel ? pn('time') : null,
+      setDepth: sel ? pn('depth') : null,
+      toggleLockLength: () => sel && this.patchParam(sel.uid, 'lockLength', !sp.lockLength),
+
+      toggleSelEnabled: () => sel && this.patchStep(sel.uid, { enabled: !sel.enabled }),
+      setBlend: (e) => sel && this.patchStep(sel.uid, { blend: e.target.value }),
+      setOpacity: (e) => sel && this.patchStep(sel.uid, { opacity: parseInt(e.target.value) }),
+      removeSelected: () => sel && this.setState(prev => ({ chain: prev.chain.filter(x => x.uid !== sel.uid), selectedStep: 'source' })),
+      setDirection: sel ? pp('direction') : null, setLow: sel ? pn('low') : null, setHigh: sel ? pn('high') : null,
+      setMode: sel ? pp('mode') : null, setAmount: sel ? pn('amount') : null, setStepSeed: sel ? pn('seed') : null,
+      setChannel: sel ? pp('channel') : null, setDx: sel ? pn('dx') : null, setDy: sel ? pn('dy') : null,
+      setAxis: sel ? pp('axis') : null, setDispAmount: sel ? pn('amount') : null, setDispScale: sel ? pn('scale') : null,
+      setOp: sel ? pp('op') : null, setValue: sel ? pn('value') : null, setCoverage: sel ? pn('coverage') : null,
+
+      onAddStep: (e) => {
+        const type = e.target.value;
+        if (!type || !TYPES[type]) return;
+        const uid = this.nextUid++;
+        this.setState(prev => ({
+          chain: [...prev.chain, { uid, type, enabled: true, blend: 'normal', opacity: 100, params: { ...TYPES[type].defaults } }],
+          selectedStep: uid, addValue: '',
+        }));
+      },
+      takeSnapshot: () => {
+        const { snapshots, ...rest } = s;
+        const thumb = hasImage ? `url(${s.imageSrc})` : previewGradient;
+        const label = hasImage ? 'img' : `s${s.seed}`;
+        const title = `${s.chain.filter(x => x.enabled).map(x => TYPES[x.type].label).join(' → ') || 'source only'}`;
+        this.setState(prev => ({ snapshots: [{ label, title, thumb, state: rest }, ...prev.snapshots].slice(0, 12) }));
+      },
+
+      isGenerateMode: s.sourceMode === 'generate',
+      isImportMode: s.sourceMode === 'import',
+      isNoise: s.generator === 'noise' && s.sourceMode === 'generate',
+      isReaction: s.generator === 'reaction' && s.sourceMode === 'generate',
+      importCaption: s.imageName || 'drop an image here',
+      genModeBg: s.sourceMode === 'generate' ? '#0a84ff' : 'transparent',
+      genModeColor: s.sourceMode === 'generate' ? '#fff' : 'rgba(255,255,255,0.6)',
+      importModeBg: s.sourceMode === 'import' ? '#0a84ff' : 'transparent',
+      importModeColor: s.sourceMode === 'import' ? '#fff' : 'rgba(255,255,255,0.6)',
+      invertTrackColor: s.invert ? '#0a84ff' : 'rgba(120,120,128,0.32)',
+      invertKnobLeft: s.invert ? 18 : 2,
+      setSourceGenerate: () => set({ sourceMode: 'generate' }),
+      setSourceImport: () => set({ sourceMode: 'import' }),
+      onFile: (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        const r = new FileReader();
+        r.onload = () => set({ imageSrc: r.result, imageName: f.name, sourceMode: 'import' });
+        r.readAsDataURL(f);
+      },
+      setGenerator: (e) => set({ generator: e.target.value }),
+      setSeed: (e) => set({ seed: parseInt(e.target.value) || 0 }),
+      shuffleSeed: () => set({ seed: s.seed + Math.floor(Math.random() * 97) + 1 }),
+      setSize: (e) => set({ size: e.target.value }),
+      setGamma: (e) => set({ gamma: parseFloat(e.target.value) }),
+      toggleInvert: () => set({ invert: !s.invert }),
+      setOctaves: (e) => set({ octaves: parseInt(e.target.value) }),
+      setFreq: (e) => set({ freq: parseInt(e.target.value) }),
+      setWarp: (e) => set({ warp: parseFloat(e.target.value) }),
+      setPreset: (e) => set({ preset: e.target.value }),
+      setSteps: (e) => set({ steps: parseInt(e.target.value) }),
+      setSim: (e) => set({ sim: parseInt(e.target.value) }),
+      renderNow: () => set({ seed: s.seed }),
+    };
+  }
+}
+
+</script>
+</body>
+</html>
