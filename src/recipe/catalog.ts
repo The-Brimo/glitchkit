@@ -435,6 +435,7 @@ export const TRANSFORMS: Record<string, Descriptor> = {
  */
 export const CHAIN_NOTES = [
   'Byte-domain steps (databend, byteops, jpegloop) re-encode the image. Anything after them operates on already-damaged data, so place them late unless compounding damage is the goal.',
+  'Put databend and byteops BEFORE halftone, never after. Halftone produces a dithered checkerboard, which is the worst case for JPEG compression — corrupting that stream destroys the picture instead of glitching it.',
   'pixelsort reads structure, so it works best before heavy displacement destroys the structure it would sort along.',
   'channelshift and halftone are good finishers — they unify a chaotic chain visually.',
   'Two byte-domain steps back to back usually destroys the image. Separate them with a pixel-domain step.',

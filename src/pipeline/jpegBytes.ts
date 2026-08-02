@@ -45,15 +45,24 @@ export function findScanDataStart(bytes: Uint8Array): number {
   return Math.min(bytes.length, 400);
 }
 
-// A literal 0xFF byte inside entropy-coded scan data means "marker follows" to a JPEG
-// decoder unless it's stuffed with a trailing 0x00. Byte-domain mutations can easily
-// produce a bare 0xFF, which makes browsers hard-fail the whole decode instead of just
-// corrupting nearby pixels. Neutralizing every 0xFF in the scan region (mutated or not)
-// keeps the stream structurally valid while still preserving the glitch's effect on
-// the surrounding bytes.
+// A literal 0xFF inside entropy-coded scan data means "a marker follows" unless it is
+// byte-stuffed as FF 00 (or is a restart marker, FFD0-FFD7). A byte-domain mutation can
+// produce a bare 0xFF, which makes decoders hard-fail the whole image rather than
+// corrupting it locally.
+//
+// This only neutralizes 0xFF bytes that are ACTUALLY invalid — it leaves legitimate
+// stuffing and restart markers intact. An earlier version rewrote every 0xFF in the
+// region, which guaranteed decodability but destroyed the effect: on a typical frame
+// that touched ~37 valid stuffed pairs spread evenly across the image versus the ~11
+// bytes the glitch itself changes, so the collateral damage swamped the effect and
+// flattened the picture uniformly instead of letting corruption cascade from a point.
 export function sanitizeScanRegion(bytes: Uint8Array, start: number, end: number): Uint8Array {
   for (let i = start; i < end; i++) {
-    if (bytes[i] === 0xff) bytes[i] = 0xfe;
+    if (bytes[i] !== 0xff) continue;
+    const next = i + 1 < end ? bytes[i + 1] : -1;
+    const isStuffed = next === 0x00;
+    const isRestart = next >= 0xd0 && next <= 0xd7;
+    if (!isStuffed && !isRestart) bytes[i] = 0xfe;
   }
   return bytes;
 }
