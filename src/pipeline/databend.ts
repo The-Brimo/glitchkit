@@ -12,6 +12,10 @@ export function applyDatabend(bytes: Uint8Array, start: number, end: number, par
   if (len <= 0) return out;
   const rand = mulberry32(seedFromInt(params.seed));
   const amount = Math.min(500, Math.max(0, params.amount));
+  // Zero must be a true no-op. Previously every mode still mutated at 0:
+  // random hit 1 byte, reverse 2, and shift rotated the whole tail (measured
+  // 1159 changed bytes on a busy source).
+  if (amount === 0) return out;
   const t = amount / 500;
 
   if (params.mode === 'random') {

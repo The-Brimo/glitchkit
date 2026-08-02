@@ -18,9 +18,23 @@ export function sliceShuffle(src: ImageData, params: SliceShuffleParams): ImageD
   for (let i = 0; i < count; i++) {
     if (rand() < params.amount / 100) selected.push(i);
   }
+  // Any nonzero amount must do SOMETHING. With the old plain shuffle, a random
+  // permutation keeps elements in place with expectation 1, so the 1-2 slices
+  // typically selected at low amounts collapsed to the identity most of the
+  // time — measured: amount 15 was a complete no-op for 22 of 30 seeds. Two
+  // fixes: nonzero amounts select at least 2 slices, and Sattolo's algorithm
+  // (j strictly below i) produces a uniform random CYCLE, which has no fixed
+  // points — every selected slice actually moves.
+  if (params.amount > 0 && selected.length < 2) {
+    while (selected.length < 2) {
+      const extra = Math.floor(rand() * count);
+      if (!selected.includes(extra)) selected.push(extra);
+    }
+    selected.sort((a, b) => a - b);
+  }
   const perm = [...selected];
   for (let i = perm.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
+    const j = Math.floor(rand() * i);
     [perm[i], perm[j]] = [perm[j], perm[i]];
   }
   const mapping = Array.from({ length: count }, (_, i) => i);

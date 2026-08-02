@@ -43,6 +43,11 @@ export function pixelSort(src: ImageData, params: PixelSortParams): ImageData {
   const lineLen = vertical ? height : width;
   const key = params.sortBy ?? 'brightness';
   const descending = params.order === 'descending';
+  // The thresholds are a band and the UI lets them be dragged past each other,
+  // which previously made every span test fail — a silent total no-op. Treat
+  // the pair as unordered.
+  const lo = Math.min(params.low, params.high);
+  const hi = Math.max(params.low, params.high);
 
   const idx = (line: number, pos: number) => {
     const x = vertical ? line : pos;
@@ -58,7 +63,7 @@ export function pixelSort(src: ImageData, params: PixelSortParams): ImageData {
       if (inSpan) {
         const o = idx(line, pos);
         const k = sortKeyValue(data[o], data[o + 1], data[o + 2], key);
-        inRange = k >= params.low && k <= params.high;
+        inRange = k >= lo && k <= hi;
       }
       if (inRange) {
         if (spanStart === -1) spanStart = pos;
