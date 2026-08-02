@@ -1,5 +1,7 @@
 import type { BlendMode, Document, Snapshot, Step, StepParams, StepType } from '../types';
 import { STEP_DEFAULTS } from '../pipeline/stepTypes';
+import type { Recipe } from '../recipe/schema';
+import { recipeToDocument } from '../recipe/document';
 
 export type DocAction =
   | { type: 'PATCH'; patch: Partial<Document>; historyKey?: string }
@@ -12,6 +14,7 @@ export type DocAction =
   | { type: 'REMOVE_STEP'; id: string }
   | { type: 'TAKE_SNAPSHOT'; thumb: string }
   | { type: 'RESTORE_SNAPSHOT'; id: string }
+  | { type: 'APPLY_RECIPE'; recipe: Recipe }
   | { type: 'SET_FILE'; dataURL: string; name: string };
 
 // A patch whose values already match must return the same object, or no-op edits
@@ -87,6 +90,10 @@ export function docReducer(doc: Document, action: DocAction): Document {
       if (!snap) return doc;
       return { ...snap.doc, snapshots: doc.snapshots };
     }
+    // Swaps source + chain wholesale as ONE history entry, so a loaded look is
+    // a single undo away from whatever the user had before.
+    case 'APPLY_RECIPE':
+      return recipeToDocument(action.recipe, doc);
     case 'SET_FILE':
       return { ...doc, imageDataURL: action.dataURL, imageName: action.name, sourceMode: 'imported' };
     default:

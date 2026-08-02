@@ -1,4 +1,5 @@
 import type { Document } from '../types';
+import { documentToRecipe } from '../recipe/document';
 
 // Export per the design spec: PNG for lossless output, JPEG when the chain ends in a
 // byte-level step (whose look is inherently JPEG-domain anyway), and the full parameter
@@ -7,10 +8,11 @@ import type { Document } from '../types';
 
 const JPEG_ENDING_TYPES = new Set(['databend', 'byteops', 'jpegloop']);
 
+// The embedded payload is the versioned wire format from src/recipe, not the internal
+// Document, so images stay readable across changes to the internal model. Files written
+// before that format existed are still handled, by a migration in recipe/validate.ts.
 export function buildRecipe(doc: Document): string {
-  // Strip snapshots (recursive/huge) and the base64 image payload; keep the name.
-  const { snapshots: _snapshots, imageDataURL: _imageDataURL, ...rest } = doc;
-  return JSON.stringify({ app: 'glitchkit', recipeVersion: 1, ...rest });
+  return JSON.stringify(documentToRecipe(doc));
 }
 
 // PNG tEXt requires Latin-1; escaping non-ASCII as \uXXXX keeps the JSON valid and the

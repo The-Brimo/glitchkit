@@ -70,6 +70,11 @@ matters and is fully drag-reorderable in the bottom strip.
   Byte Ops, JPEG Loop). The complete parameter recipe is embedded in the file's
   metadata (PNG `tEXt` chunk / JPEG comment segment), so any output can be traced
   back to its exact settings — readable with `exiftool` or any metadata viewer.
+- **Load recipe** (toolbar ⤒) reads that metadata back. Pick any image glitchkit
+  exported — or a bare `.json` recipe — and the whole document is restored:
+  generator, palette, and the full chain with per-step params, blend, opacity and
+  bypass state. Every exported image doubles as a re-loadable project file.
+  Loading is a single undo away from your previous state.
 - Full undo/redo across parameter changes, add/remove/reorder, and restores
   (toolbar buttons ⟲ / ⟳).
 
@@ -97,14 +102,47 @@ src/
     exportImage.ts        PNG/JPEG export with embedded recipe metadata
     composite.ts          Blend/opacity compositing
     rng.ts                Deterministic PRNG + hashing
+  recipe/                Versioned wire format — the only door in from untrusted input
+    schema.ts             Recipe type + version constant
+    catalog.ts            Param ranges + perceptual descriptions per transform
+    validate.ts           coerceRecipe — repairs and clamps, never rejects wholesale
+    document.ts           Recipe <-> Document adapter (the only file knowing both)
+    parse.ts              Extracts a recipe from PNG tEXt / JPEG COM / .json
   components/             Sidebar, Toolbar, Canvas, Inspector, panels, controls
 ```
 
+### The recipe path
+
+Anything that produces a set of parameters — an exported image's metadata, a
+hand-edited JSON file, or eventually a generator — is treated as untrusted and
+funnelled through one place:
+
+```
+producer -> parse.ts -> coerceRecipe (validate.ts) -> recipeToDocument -> APPLY_RECIPE
+```
+
+`coerceRecipe` repairs rather than rejects: unknown transforms are dropped,
+out-of-range numbers are clamped, missing params take their defaults, and every
+repair is reported in `warnings` so the UI can say what it changed. Nothing calls
+the reducer directly.
+
+The wire format is deliberately separate from the internal `Document`, so the
+internal model can change without invalidating already-exported images. The two
+representations meet only in `recipe/document.ts`. Parameter *defaults* are not
+restated in the catalog — they are imported from `pipeline/stepTypes.ts`, which
+stays the single typed source of truth.
+
 ## Known limitations
 
-- Projects are in-memory only: reloading the page resets the document (snapshots
-  included). Exported images carry the full recipe in their metadata, but there is
-  no project save/load or recipe re-import yet — that's the natural next step.
+- Projects are in-memory only: reloading the page resets the document and clears
+  snapshots. Exported images act as project files (see Load recipe above), but
+  there is no session persistence or multi-recipe library yet.
+- A recipe never carries the source image itself, only the settings. Loading a
+  recipe that came from an imported photo restores the chain and keeps whatever
+  image you currently have open.
+- The slider ranges in `components/TransformPanel` are still hand-written and must
+  agree with the ranges in `recipe/catalog.ts`. Having the panels read their
+  min/max from the catalog would remove the last duplication.
 - Reaction-diffusion previews run at reduced steps/sim for responsiveness; hit
   Render for the full-quality simulation.
 - Byte-domain transforms depend on how the JPEG encoder distributed bytes, so their
