@@ -27,10 +27,19 @@ export function applyDatabend(bytes: Uint8Array, start: number, end: number, par
       out[pos] = Math.floor(rand() * 256);
     }
   } else if (params.mode === 'shift') {
-    const shift = Math.max(1, Math.round(t * t * len * 0.05)) % len;
-    const region = out.slice(start, end);
-    for (let i = 0; i < len; i++) {
-      out[start + ((i + shift) % len)] = region[i];
+    // Rotate only the tail, for the same reason random and reverse skip it:
+    // rotating the whole region desyncs from the very first byte, so every
+    // amount destroyed the entire frame and the slider only changed how it
+    // failed. Confining the rotation keeps the top intact at low amounts.
+    const skip = Math.round((1 - t) * len * 0.85);
+    const tailStart = start + skip;
+    const tailLen = end - tailStart;
+    if (tailLen > 1) {
+      const shift = Math.max(1, Math.round(t * t * tailLen * 0.1)) % tailLen;
+      const region = out.slice(tailStart, end);
+      for (let i = 0; i < tailLen; i++) {
+        out[tailStart + ((i + shift) % tailLen)] = region[i];
+      }
     }
   } else {
     const chunkLen = Math.min(len, Math.max(2, Math.round(amount * 3)));
