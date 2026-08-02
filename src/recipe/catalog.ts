@@ -35,6 +35,12 @@ import type {
   SliceShuffleParams,
 } from '../types';
 
+/**
+ * `promptOmit` marks params a generator must never invent — seeds (so repeat
+ * runs vary) and canvas size (so a generated look doesn't silently resize the
+ * user's document). They are filled locally instead, and are left out of both
+ * the serialised prompt and the response schema.
+ */
 export type ParamSpec =
   | {
       type: 'number';
@@ -45,9 +51,10 @@ export type ParamSpec =
       int?: boolean;
       /** Perceptual anchors for a generating model. Prompt-only, never UI. */
       feel?: string;
+      promptOmit?: boolean;
     }
-  | { type: 'enum'; of: readonly string[]; default: string; feel?: string }
-  | { type: 'boolean'; default: boolean; feel?: string };
+  | { type: 'enum'; of: readonly string[]; default: string; feel?: string; promptOmit?: boolean }
+  | { type: 'boolean'; default: boolean; feel?: string; promptOmit?: boolean };
 
 export interface Descriptor {
   /** One line, written for a model that has never seen the output. */
@@ -75,7 +82,7 @@ const seedSpec = (dflt: number): ParamSpec => ({
   max: 999999,
   default: dflt,
   int: true,
-  feel: 'Omit when generating — it is filled in locally so repeat runs differ.',
+  promptOmit: true,
 });
 
 /* ── Sources ─────────────────────────────────────────────────────── */
@@ -99,22 +106,8 @@ const COMMON_SOURCE_PARAMS: Record<string, ParamSpec> = {
   },
   invert: { type: 'boolean', default: false },
   seed: seedSpec(7),
-  width: {
-    type: 'number',
-    min: 16,
-    max: 4096,
-    default: 1600,
-    int: true,
-    feel: 'Omit when generating — the current canvas size is kept.',
-  },
-  height: {
-    type: 'number',
-    min: 16,
-    max: 4096,
-    default: 900,
-    int: true,
-    feel: 'Omit when generating — the current canvas size is kept.',
-  },
+  width: { type: 'number', min: 16, max: 4096, default: 1600, int: true, promptOmit: true },
+  height: { type: 'number', min: 16, max: 4096, default: 900, int: true, promptOmit: true },
 };
 
 export const SOURCES: Record<string, Descriptor> = {

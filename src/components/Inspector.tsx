@@ -3,6 +3,7 @@ import { useRenderEngine } from '../store/RenderEngine';
 import { colors } from '../theme';
 import { SourcePanel } from './SourcePanel';
 import { TransformPanel } from './TransformPanel';
+import { GeneratePanel } from './GeneratePanel';
 import { DividerLine, PrimaryButton, SecondaryButton } from './controls';
 
 function makeThumb(canvas: HTMLCanvasElement | null): string {
@@ -41,7 +42,15 @@ export function Inspector() {
       }}
     >
       <div style={{ flex: 1, overflowY: 'auto', padding: '18px 18px 0' }}>
-        {selectedStep ? <TransformPanel step={selectedStep} /> : <SourcePanel />}
+        {selectedStep ? (
+          <TransformPanel step={selectedStep} />
+        ) : (
+          <>
+            <SourcePanel />
+            <DividerLine margin="20px 0 14px" />
+            <GeneratePanel />
+          </>
+        )}
       </div>
 
       <div style={{ padding: '0 18px 18px', flexShrink: 0 }}>

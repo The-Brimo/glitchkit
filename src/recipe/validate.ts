@@ -39,7 +39,10 @@ export function coerceRecipe(input: unknown): CoerceResult {
   const migrated = migrate(raw, warnings);
 
   const source = coerceSource(migrated.source, warnings);
-  const steps = coerceSteps(migrated.steps, warnings);
+  // Models that ignore the response schema reach for "pipeline" or "recipe"
+  // instead of "steps" — observed from real local models, so tolerate both.
+  const stepsField = migrated.steps ?? migrated.pipeline ?? migrated.recipe;
+  const steps = coerceSteps(stepsField, warnings);
 
   const recipe: Recipe = { v: RECIPE_VERSION, source, steps };
   const name = coerceName(migrated.name);
@@ -183,12 +186,25 @@ function coerceStep(raw: unknown, warnings: string[]): RecipeStep | null {
     return null;
   }
 
+  // Some models flatten a step's settings onto the step itself instead of
+  // nesting them under "params". If there is no params object, treat every key
+  // that isn't a known step field as a parameter.
+  const STEP_FIELDS = new Set(['t', 'type', 'transform', 'on', 'enabled', 'blend', 'opacity', 'params', 'p', 'id', 'name']);
+  let paramSource = raw.params ?? raw.p;
+  if (!isRecord(paramSource)) {
+    const flattened = Object.fromEntries(Object.entries(raw).filter(([k]) => !STEP_FIELDS.has(k)));
+    if (Object.keys(flattened).length) {
+      warnings.push(`${t}: settings were not nested under "params"; recovered them.`);
+      paramSource = flattened;
+    }
+  }
+
   return {
     t,
-    on: raw.on === undefined ? true : Boolean(raw.on),
+    on: raw.on === undefined ? Boolean(raw.enabled ?? true) : Boolean(raw.on),
     blend: coerceBlend(raw.blend, t, warnings),
     opacity: clamp01(raw.opacity, 1, `${t}.opacity`, warnings),
-    params: coerceParams(raw.params ?? raw.p, desc, t, warnings),
+    params: coerceParams(paramSource, desc, t, warnings),
   };
 }
 

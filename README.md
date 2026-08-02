@@ -75,8 +75,38 @@ matters and is fully drag-reorderable in the bottom strip.
   generator, palette, and the full chain with per-step params, blend, opacity and
   bypass state. Every exported image doubles as a re-loadable project file.
   Loading is a single undo away from your previous state.
+- **Generate** describes a look in plain language and gets back a chain —
+  "a corrupted VHS tape", or "more aggressive, keep the sort" to revise what
+  you already have. Runs against a **local model via [Ollama](https://ollama.com)**:
+  no API key, no account, no network egress, no per-use cost. Applying a
+  generated look is a single undo.
 - Full undo/redo across parameter changes, add/remove/reorder, and restores
   (toolbar buttons ⟲ / ⟳).
+
+### Generation setup
+
+Install Ollama and pull any instruct model, then start it:
+
+```bash
+ollama pull qwen3.6:35b-mlx && ollama serve
+```
+
+The Generate panel lists whatever models Ollama has and remembers your choice;
+switch model or point at a different host any time from the panel. If no server
+is running the panel says so and the rest of the app is unaffected — generation
+is strictly additive.
+
+**Model notes.** Any instruct model works, but two things matter:
+
+- **Speed varies enormously.** Measured on the same prompts: `qwen3.6:35b-mlx`
+  ~4s, `gemma4:31b-mlx` and a Q4_K_M GGUF ~20–30s. MLX builds are much faster
+  on Apple Silicon.
+- **Schema enforcement is backend-dependent.** Ollama's `format` parameter is
+  enforced by grammar-constrained decoding on llama.cpp/GGUF backends and
+  **silently ignored on MLX**. The system prompt therefore carries a worked
+  example of the output shape, which is what actually keeps MLX models on
+  format — and `coerceRecipe` repairs the rest. Don't remove that example
+  assuming the schema covers it.
 
 ## Code map
 
@@ -108,6 +138,8 @@ src/
     validate.ts           coerceRecipe — repairs and clamps, never rejects wholesale
     document.ts           Recipe <-> Document adapter (the only file knowing both)
     parse.ts              Extracts a recipe from PNG tEXt / JPEG COM / .json
+    prompt.ts             Serialises the catalog into a system prompt + schema
+    generate.ts           Local Ollama client (plain fetch, no SDK, no key)
   components/             Sidebar, Toolbar, Canvas, Inspector, panels, controls
 ```
 
@@ -118,7 +150,9 @@ hand-edited JSON file, or eventually a generator — is treated as untrusted and
 funnelled through one place:
 
 ```
-producer -> parse.ts -> coerceRecipe (validate.ts) -> recipeToDocument -> APPLY_RECIPE
+exported image ─┐
+pasted JSON    ─┼─> coerceRecipe (validate.ts) -> recipeToDocument -> APPLY_RECIPE
+local model    ─┘
 ```
 
 `coerceRecipe` repairs rather than rejects: unknown transforms are dropped,
