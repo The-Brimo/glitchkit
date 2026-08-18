@@ -23,8 +23,9 @@ implementation deliberately diverges).
   stream** — DSP on entropy-coded bytes just desyncs the decoder and yields
   source-independent noise. jpegloop re-encodes N times. Two canvas-domain steps
   are **additive rather than destructive**: `field` ignores its input entirely
-  and synthesises a noise/reaction field at the same size, and `feedback`
-  composites the frame over itself under a repeating affine step.
+  and synthesises a noise/reaction field at the same size, `feedback`
+  composites the frame over itself under a repeating affine step, and `scan`
+  synthesises a CRT screen mask (also input-independent).
 - `src/recipe/` — versioned wire format. **The only door from untrusted input is
   `coerceRecipe` (validate.ts) → `recipeToDocument` → APPLY_RECIPE** (one undo
   entry). Producers: exported-image metadata (PNG tEXt / JPEG COM via parse.ts),
@@ -34,10 +35,16 @@ implementation deliberately diverges).
 - **A step may ignore its input.** `runPipeline` ends every step with
   `compositeOver(input, output, blend, opacity)`, so the per-step blend/opacity
   *is* the layer-compositing system — a generative step needs no new machinery,
-  only to not read what it was handed. This is what `field` exploits. Adding
-  another generator (scanlines, glyphs, contours) is the same 5-file shape:
+  only to not read what it was handed. This is what `field` and `scan` exploit.
+  Adding another generator (glyphs, contours) is the same 5-file shape:
   types.ts, stepTypes.ts, runner.ts, catalog.ts, TransformPanel.tsx. validate.ts
   and prompt.ts are catalog-derived and need no per-type edit.
+- **`renderScale`**: runPipeline computes the preview downscale factor and passes
+  it to runTransform. Any step whose params are authored in *final-render pixels*
+  must apply it or the live preview lies about the export. `scan` does. **`halftone`
+  does not** — its cell size is a raw pixel count, so a 900px preview of a 1600px
+  document shows its pattern 1.78x coarser than the exported image. Fixing that is
+  a one-line change plus a re-measure, and is the obvious next cleanup.
 - `STEP_CREATE` in stepTypes.ts holds per-type compositing defaults for newly
   added steps. Destructive steps take normal/100; `field` takes overlay/70,
   because a generative step born at normal/100 blanks the frame the instant you
@@ -67,6 +74,13 @@ implementation deliberately diverges).
   the requested echo count** — a plain `retention^i` fades out after a fixed
   number of copies regardless of the slider, which measured as a hard dead zone
   over the top 40% of the range.
+- `scan` masks are white where light passes, dark where blocked, hence
+  multiply and hence strength 0 being an exact identity. Triad pitch **must**
+  stay snapped to a multiple of 3: unsnapped, pitch 8 gave red and green three
+  phosphor columns and blue two (10800/10800/7200 lit subpixels), a third less
+  blue and a yellow cast over the whole frame. A mask can only subtract light,
+  so it always dims (73% brightness retained for scanlines at strength 55, 63%
+  for triad modes) — that is correct, not a bug to auto-correct.
 - Generative-step defaults were chosen by sweeping and measuring, and the
   obvious choice lost both times. Field: overlay/gamma 1.6/70% gives 2.92x the
   baseline luma contrast at −7.6 luma shift, where screen/gamma 1.0/70% managed
@@ -106,9 +120,11 @@ implementation deliberately diverges).
 
 ## Not done / candidate next steps
 
-- More additive steps, now that the pattern is proven: Scan/CRT (synthesised
-  raster, scanlines, rolling bar), Glyph spill (hex/block characters placed by
-  local luma), Contour trace (lines drawn along edges or iso-luma bands).
+- Make `halftone` honour `renderScale` (see above) so its preview matches the
+  export the way `scan`'s now does.
+- More additive steps, now that the pattern is proven three times: Glyph spill
+  (hex/block characters placed by local luma), Contour trace (lines drawn along
+  edges or iso-luma bands).
 - Hand-authored preset library of named looks (doubles as few-shot exemplars
   for generation). More interesting now that a chain can generate its own
   imagery — a preset need not assume an imported photo.
