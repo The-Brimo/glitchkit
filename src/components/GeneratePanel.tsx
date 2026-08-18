@@ -16,6 +16,9 @@ import { Field, SectionHeader, SelectField, TextField, Footnote, PrimaryButton, 
 const LS_MODEL = 'glitchkit.ollama.model';
 const LS_BASE_URL = 'glitchkit.ollama.baseUrl';
 
+/** Long enough to swallow a typed URL, short enough to feel immediate. */
+const URL_EDIT_DEBOUNCE_MS = 400;
+
 type Status =
   | { kind: 'checking' }
   | { kind: 'ready' }
@@ -37,29 +40,48 @@ export function GeneratePanel() {
 
   // Discover what Ollama actually has. Re-runs when the URL changes, so
   // pointing at a different host repopulates the model list.
+  //
+  // The URL field is controlled, so every keystroke lands here: typing a new
+  // port used to fire one probe per character (measured 44 requests for 44
+  // keystrokes), each holding a 4s timeout and flashing the panel through
+  // "checking" to "unavailable". Edits are debounced, and the probe in flight is
+  // aborted rather than left to finish into a state nobody reads.
+  //
+  // The very first probe is not delayed — only edits are. `initialUrl` is a ref
+  // rather than a mutated "have I run yet" flag so that StrictMode's
+  // mount/unmount/remount still takes the zero-delay path on the remount.
+  const initialUrl = useRef(baseUrl);
   useEffect(() => {
     let cancelled = false;
-    setStatus({ kind: 'checking' });
-    listModels(baseUrl)
-      .then((found) => {
-        if (cancelled) return;
-        setModels(found);
-        setStatus({ kind: 'ready' });
-        setModel((current) => {
-          if (current && found.some((m) => m.name === current)) return current;
-          return pickDefaultModel(found) ?? '';
+    const controller = new AbortController();
+    const delay = baseUrl === initialUrl.current ? 0 : URL_EDIT_DEBOUNCE_MS;
+
+    const timer = setTimeout(() => {
+      setStatus({ kind: 'checking' });
+      listModels(baseUrl, controller.signal)
+        .then((found) => {
+          if (cancelled) return;
+          setModels(found);
+          setStatus({ kind: 'ready' });
+          setModel((current) => {
+            if (current && found.some((m) => m.name === current)) return current;
+            return pickDefaultModel(found) ?? '';
+          });
+        })
+        .catch((e) => {
+          if (cancelled) return;
+          setModels([]);
+          setStatus({
+            kind: 'unavailable',
+            message: e instanceof OllamaUnavailableError ? e.message : String(e),
+          });
         });
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setModels([]);
-        setStatus({
-          kind: 'unavailable',
-          message: e instanceof OllamaUnavailableError ? e.message : String(e),
-        });
-      });
+    }, delay);
+
     return () => {
       cancelled = true;
+      clearTimeout(timer);
+      controller.abort();
     };
   }, [baseUrl]);
 

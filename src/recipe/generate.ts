@@ -32,11 +32,20 @@ function isConnectionFailure(e: unknown): boolean {
   return e instanceof TypeError || (e instanceof DOMException && e.name === 'AbortError');
 }
 
-export async function listModels(baseUrl = DEFAULT_BASE_URL): Promise<OllamaModel[]> {
+/**
+ * `signal` lets the caller drop a request it no longer cares about — a URL the
+ * user has already typed past. Without it a superseded probe stays open for the
+ * full timeout, and against an unreachable host they queue up.
+ */
+export async function listModels(baseUrl = DEFAULT_BASE_URL, signal?: AbortSignal): Promise<OllamaModel[]> {
+  const timeout = AbortSignal.timeout(4000);
   let res: Response;
   try {
-    res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/tags`, { signal: AbortSignal.timeout(4000) });
+    res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/tags`, {
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
   } catch (e) {
+    if (signal?.aborted) throw e;
     if (isConnectionFailure(e)) {
       throw new OllamaUnavailableError(`No Ollama server at ${baseUrl}. Start it with: ollama serve`);
     }
