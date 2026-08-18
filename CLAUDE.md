@@ -21,13 +21,14 @@ implementation deliberately diverges).
   take ImageData. Byte-domain ops (databend, byteops) encode→corrupt JPEG scan
   bytes→decode. **Audio Lab runs DSP on raw pixel bytes as PCM, NOT on the JPEG
   stream** — DSP on entropy-coded bytes just desyncs the decoder and yields
-  source-independent noise. jpegloop re-encodes N times. Four canvas-domain
-  steps are **additive rather than destructive**: `field` ignores its input and
+  source-independent noise. jpegloop re-encodes N times. Five steps are
+  **additive rather than destructive**: `field` ignores its input and
   synthesises a noise/reaction field, `feedback` composites the frame over
   itself under a repeating affine step, `scan` synthesises a CRT screen mask
-  (also input-independent), and `glyphs` re-renders the image as terminal
-  characters (additive but input-reading — marks are new, placement and tone
-  come from the picture).
+  (also input-independent), and `glyphs` and `contour` re-render the image as
+  terminal characters / traced linework (additive but input-reading — marks
+  are new, placement and tone come from the picture). `contour` is the one
+  transform with no seed: fully deterministic.
 - `src/recipe/` — versioned wire format. **The only door from untrusted input is
   `coerceRecipe` (validate.ts) → `recipeToDocument` → APPLY_RECIPE** (one undo
   entry). Producers: exported-image metadata (PNG tEXt / JPEG COM via parse.ts),
@@ -91,6 +92,14 @@ implementation deliberately diverges).
   blue and a yellow cast over the whole frame. A mask can only subtract light,
   so it always dims (73% brightness retained for scanlines at strength 55, 63%
   for triad modes) — that is correct, not a bug to auto-correct.
+- `contour` WYSIWYG is mode-specific and the reasoning must not be merged:
+  iso ink mass is length-based (contour length scales with the frame, 1px line
+  width cannot), corrected by sub-pixel alpha when scaled weight lands under
+  the 1px floor — +79% -> -0.3%. Edge mode is area-exact by construction (its
+  coverage slider is a histogram QUANTILE selecting a fraction of the frame,
+  scale-free and monotone by design) and applying the iso compensation there
+  overcorrects to -43%. Edge at weight > 1 keeps a documented ~-23% preview
+  residual (integer dilation on a downscaled frame); default weight is exact.
 - `glyphs` tone mapping is measured, not assumed. Density ramps (blocks,
   ascii) are sorted by ink coverage measured on the actual platform font at
   runtime — conventional ramp order is not coverage-monotone ('=' inks more
@@ -140,8 +149,6 @@ implementation deliberately diverges).
 
 ## Not done / candidate next steps
 
-- One more additive step candidate: Contour trace (lines drawn along edges or
-  iso-luma bands) — the only one of the original additive-step list not built.
 - Hand-authored preset library of named looks (doubles as few-shot exemplars
   for generation). More interesting now that a chain can generate its own
   imagery — a preset need not assume an imported photo.
