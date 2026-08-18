@@ -12,6 +12,7 @@ import type {
   SliceShuffleParams,
   HalftoneParams,
   FieldParams,
+  FeedbackParams,
   BlendMode,
 } from '../types';
 import { Field, SelectField, Slider, NumberField, Toggle, SectionHeader, DividerLine, Footnote, DestructiveButton } from './controls';
@@ -52,6 +53,7 @@ export function TransformPanel({ step }: { step: Step }) {
       {step.type === 'sliceshuffle' && <SliceShuffleControls params={step.params as SliceShuffleParams} patchParam={patchParam} />}
       {step.type === 'halftone' && <HalftoneControls params={step.params as HalftoneParams} patchParam={patchParam} />}
       {step.type === 'field' && <FieldControls params={step.params as FieldParams} patchParam={patchParam} />}
+      {step.type === 'feedback' && <FeedbackControls params={step.params as FeedbackParams} patchParam={patchParam} />}
 
       <DividerLine />
       <SectionHeader>Compositing</SectionHeader>
@@ -78,6 +80,37 @@ export function TransformPanel({ step }: { step: Step }) {
 }
 
 type Patch = (key: string, value: unknown, historyKey?: string) => void;
+
+function FeedbackControls({ params, patchParam }: { params: FeedbackParams; patchParam: Patch }) {
+  const still = params.zoom === 0 && params.rotate === 0 && params.dx === 0 && params.dy === 0;
+  return (
+    <>
+      <Slider label="Echoes" value={params.iterations} min={0} max={24} step={1} onChange={(v) => patchParam('iterations', v, 'fbiter')} />
+      <Slider label="Zoom per echo" value={params.zoom} min={-10} max={10} step={0.5} unit="%" onChange={(v) => patchParam('zoom', v, 'fbzoom')} />
+      <Slider label="Rotate per echo" value={params.rotate} min={-30} max={30} step={0.5} unit="°" onChange={(v) => patchParam('rotate', v, 'fbrot')} />
+      <Slider label="Drift X" value={params.dx} min={-60} max={60} step={1} unit=" px" onChange={(v) => patchParam('dx', v, 'fbdx')} />
+      <Slider label="Drift Y" value={params.dy} min={-60} max={60} step={1} unit=" px" onChange={(v) => patchParam('dy', v, 'fbdy')} />
+      <Slider label="Trail decay" value={params.decay} min={0} max={100} step={1} unit="%" onChange={(v) => patchParam('decay', v, 'fbdecay')} />
+      <Field label="Echo blend" marginBottom={0}>
+        <SelectField
+          value={params.echoBlend}
+          onChange={(v) => patchParam('echoBlend', v)}
+          options={[
+            { value: 'normal', label: 'normal' },
+            { value: 'screen', label: 'screen' },
+            { value: 'lighten', label: 'lighten' },
+            { value: 'difference', label: 'difference' },
+          ]}
+        />
+      </Field>
+      <Footnote>
+        {still
+          ? 'zoom, rotate and drift are all zero — every echo would land exactly on the original, so a minimum zoom is applied to keep the step visible. Move any of them to take control.'
+          : 'draws the image over itself, compounding the motion above once per echo. Echoes stop early once they fade below one 8-bit level.'}
+      </Footnote>
+    </>
+  );
+}
 
 // Only the active generator's controls are shown — the inactive set stays in
 // the params so switching back and forth doesn't lose your settings.

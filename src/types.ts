@@ -12,7 +12,8 @@ export type StepType =
   | 'jpegloop'
   | 'sliceshuffle'
   | 'halftone'
-  | 'field';
+  | 'field'
+  | 'feedback';
 
 export type BlendMode =
   | 'normal'
@@ -109,6 +110,22 @@ export interface FieldParams {
   seed: number;
 }
 
+export type EchoBlend = 'normal' | 'screen' | 'lighten' | 'difference';
+
+/**
+ * Accumulative rather than destructive: the image composited over itself under
+ * a repeating affine step, producing trails the source never contained.
+ */
+export interface FeedbackParams {
+  iterations: number;
+  zoom: number; // % scale change per echo
+  rotate: number; // degrees per echo
+  dx: number; // px drift per echo
+  dy: number;
+  decay: number; // 0..100 — trail falloff
+  echoBlend: EchoBlend;
+}
+
 export type StepParams =
   | PixelSortParams
   | DatabendParams
@@ -119,7 +136,8 @@ export type StepParams =
   | JpegLoopParams
   | SliceShuffleParams
   | HalftoneParams
-  | FieldParams;
+  | FieldParams
+  | FeedbackParams;
 
 export interface Step {
   id: string;

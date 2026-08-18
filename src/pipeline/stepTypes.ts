@@ -10,6 +10,7 @@ import type {
   SliceShuffleParams,
   HalftoneParams,
   FieldParams,
+  FeedbackParams,
   BlendMode,
   StepType,
 } from '../types';
@@ -25,6 +26,7 @@ export const STEP_LABELS: Record<StepType, string> = {
   sliceshuffle: 'Slice Shuffle',
   halftone: 'Halftone',
   field: 'Field',
+  feedback: 'Feedback',
 };
 
 export const STEP_DEFAULTS = {
@@ -57,6 +59,19 @@ export const STEP_DEFAULTS = {
     invert: false,
     seed: 7,
   }),
+  feedback: (): FeedbackParams => ({
+    iterations: 8,
+    zoom: 3,
+    rotate: 2,
+    dx: 0,
+    dy: 0,
+    decay: 35,
+    // normal, not screen: screen adds light per copy, so eight echoes lifted mean
+    // luma by +111 on a 133 baseline on every base image tested — a white-out.
+    // normal echoes measured +1.6 luma while still moving 115 mean-abs-delta on
+    // structured input (a halftoned frame). screen stays available as a choice.
+    echoBlend: 'normal',
+  }),
 };
 
 /**
@@ -82,6 +97,7 @@ export const AUDIO_LABELS: Record<AudioEffect, { time: string; depth: string }> 
 
 export const ADD_TRANSFORM_OPTIONS: { type: StepType; label: string }[] = [
   { type: 'field', label: 'Field (generate noise / reaction)' },
+  { type: 'feedback', label: 'Feedback (echo trails)' },
   { type: 'pixelsort', label: 'Pixel Sort' },
   { type: 'databend', label: 'Databend' },
   { type: 'channelshift', label: 'Channel Shift' },

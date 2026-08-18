@@ -34,6 +34,7 @@ import type {
   PixelSortParams,
   SliceShuffleParams,
   FieldParams,
+  FeedbackParams,
 } from '../types';
 
 /**
@@ -75,6 +76,7 @@ const D = {
   sliceshuffle: STEP_DEFAULTS.sliceshuffle() as SliceShuffleParams,
   halftone: STEP_DEFAULTS.halftone() as HalftoneParams,
   field: STEP_DEFAULTS.field() as FieldParams,
+  feedback: STEP_DEFAULTS.feedback() as FeedbackParams,
 };
 
 /** Seeds are filled client-side so repeated generations vary. */
@@ -492,6 +494,64 @@ export const TRANSFORMS: Record<string, Descriptor> = {
       seed: seedSpec(D.field.seed),
     },
   },
+  feedback: {
+    summary:
+      'ACCUMULATIVE, not destructive. Draws the image over itself repeatedly, each copy nudged by the same small zoom/rotation/drift and faded a little further — video feedback pointed at its own monitor. Produces trails, spiral smears and droste tunnels that were never in the source. Unlike the byte-level steps it does not degrade the picture, so it survives being placed anywhere in a chain.',
+    params: {
+      iterations: {
+        type: 'number',
+        min: 0,
+        max: 24,
+        default: D.feedback.iterations,
+        int: true,
+        feel: 'how many echo copies are laid down. 0 is off, 3 is a subtle ghost, 8 reads as a clear trail, 20+ builds a deep tunnel. The trail always spans the full count, so raising this lengthens and densifies rather than just adding invisible copies',
+      },
+      zoom: {
+        type: 'number',
+        min: -10,
+        max: 10,
+        default: D.feedback.zoom,
+        feel: 'percent scale change per echo. Positive tunnels outward toward the viewer, negative recedes inward. 2-4 is the classic droste; past 6 the copies separate into distinct rings',
+      },
+      rotate: {
+        type: 'number',
+        min: -30,
+        max: 30,
+        default: D.feedback.rotate,
+        feel: 'degrees per echo. Small values (1-4) spiral the trail, 10+ fans the copies out like a shutter',
+      },
+      dx: {
+        type: 'number',
+        min: -60,
+        max: 60,
+        default: D.feedback.dx,
+        int: true,
+        feel: 'horizontal drift per echo, in pixels — this is the motion-blur / smear direction',
+      },
+      dy: {
+        type: 'number',
+        min: -60,
+        max: 60,
+        default: D.feedback.dy,
+        int: true,
+        feel: 'vertical drift per echo. Combine a small dy with zoom 0 for a dragged, dripping trail',
+      },
+      decay: {
+        type: 'number',
+        min: 0,
+        max: 100,
+        default: D.feedback.decay,
+        int: true,
+        feel: 'how fast the trail collapses across its length, independent of the echo count. 0 holds every copy at full strength and saturates fast, 35 is a natural-looking tail, 90 concentrates everything into the first few copies and drops off hard',
+      },
+      echoBlend: {
+        type: 'enum',
+        of: ['normal', 'screen', 'lighten', 'difference'],
+        default: D.feedback.echoBlend,
+        feel: 'how each copy lands on the pile. normal stacks opaquely and is the only one that preserves overall brightness, so it is the safe default. screen adds light per copy and blows the frame out fast — at 8 echoes it lifted mean luma by over 100, so pair it with few echoes, high decay, or a reduced step opacity. lighten glows without the additive blow-out. difference gives hard psychedelic inversions where copies overlap.',
+      },
+    },
+  },
 };
 
 /* ── Chain guidance ──────────────────────────────────────────────── */
@@ -511,6 +571,9 @@ export const CHAIN_NOTES = [
   'field is the only step that ADDS imagery instead of damaging it, so it is the one step that needs a non-normal blend to be useful: at normal/1.0 it simply replaces the frame. Overlay at 0.6–0.8 measured best for adding texture without shifting overall brightness; screen lifts and glows, difference bites holes. Raise its gamma above 1.5 with overlay or screen — a mean-brightness field composites as flat haze.',
   'A field step early in the chain gives later steps new structure to chew on — pixelsort and displace read the layered result, not the bare source. Late instead, it reads as an overlay laid on top of finished damage. Both are valid; they look completely different.',
   'field with generator "reaction" is by far the slowest thing in the tool. One per chain at most, and only when its biological structure is actually the look being asked for.',
+  'feedback smears whatever it is given, so it reads very differently before and after a hard-edged step: after pixelsort it drags the streaks into comet tails, after sliceshuffle it multiplies the cuts into a shuffled tunnel. It is also the natural partner for field — generate a field, then feedback to spin it into structure.',
+  'feedback does not degrade the image the way the byte-level steps do, so it is safe late in a chain, including after halftone.',
+  'feedback needs edges to smear. On a hard-edged frame (after halftone, sliceshuffle or a heavy pixelsort) it transforms the image; on a soft cloudy one it barely registers, because offset copies of a cloud average back into the same cloud. If a chain is all soft gradients, put something hard-edged before the feedback or skip it.',
 ] as const;
 
 export const MAX_STEPS = 12;

@@ -1,4 +1,4 @@
-import type { Document, FieldParams, Step } from '../types';
+import type { Document, FeedbackParams, FieldParams, Step } from '../types';
 import { generateNoiseField } from './noise';
 import { generateReactionField } from './reaction';
 import { fieldToImageData } from './palette';
@@ -7,6 +7,7 @@ import { channelShift } from './channelShift';
 import { displace } from './displace';
 import { sliceShuffle } from './sliceShuffle';
 import { halftone } from './halftone';
+import { feedback } from './feedback';
 import { jpegLoop } from './jpegLoop';
 import { applyDatabend } from './databend';
 import { applyByteOps } from './byteOps';
@@ -154,6 +155,10 @@ async function runTransform(
     if (step.type === 'sliceshuffle') {
       const out = sliceShuffle(imageDataFromCanvas(input), step.params as any);
       return { canvas: canvasFromImageData(out) };
+    }
+    if (step.type === 'feedback') {
+      // Operates on canvases, not ImageData — the accumulation is compositing.
+      return { canvas: feedback(input, step.params as FeedbackParams) };
     }
     if (step.type === 'halftone') {
       const out = halftone(imageDataFromCanvas(input), step.params as any);
