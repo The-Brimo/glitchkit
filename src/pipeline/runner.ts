@@ -169,7 +169,8 @@ async function runTransform(
       return { canvas: feedback(input, step.params as FeedbackParams) };
     }
     if (step.type === 'halftone') {
-      const out = halftone(imageDataFromCanvas(input), step.params as any);
+      // Cell size is authored in final-render pixels, same contract as scan's pitch.
+      const out = halftone(imageDataFromCanvas(input), step.params as any, renderScale);
       return { canvas: canvasFromImageData(out) };
     }
     if (step.type === 'jpegloop') {

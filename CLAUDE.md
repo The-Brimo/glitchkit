@@ -41,10 +41,14 @@ implementation deliberately diverges).
   and prompt.ts are catalog-derived and need no per-type edit.
 - **`renderScale`**: runPipeline computes the preview downscale factor and passes
   it to runTransform. Any step whose params are authored in *final-render pixels*
-  must apply it or the live preview lies about the export. `scan` does. **`halftone`
-  does not** — its cell size is a raw pixel count, so a 900px preview of a 1600px
-  document shows its pattern 1.78x coarser than the exported image. Fixing that is
-  a one-line change plus a re-measure, and is the obvious next cleanup.
+  must apply it, or the live preview lies about the export. `scan` (pitch) and
+  `halftone` (cell size) both do; a new step with a pixel-denominated param must
+  too. Both were measured at roughly −44% cells-per-frame in preview before the
+  correction and 0% after. `halftone`'s dots mode keeps a residual up to −10.4%
+  where the scaled cell lands near a half pixel, because `dotScreen` indexes
+  pixels by integer cell offset — removing it would need fractional cell
+  boundaries, which would shift full-render output for widths not divisible by
+  the cell and change how already-exported recipes render. Deliberately not done.
 - `STEP_CREATE` in stepTypes.ts holds per-type compositing defaults for newly
   added steps. Destructive steps take normal/100; `field` takes overlay/70,
   because a generative step born at normal/100 blanks the frame the instant you
@@ -120,8 +124,6 @@ implementation deliberately diverges).
 
 ## Not done / candidate next steps
 
-- Make `halftone` honour `renderScale` (see above) so its preview matches the
-  export the way `scan`'s now does.
 - More additive steps, now that the pattern is proven three times: Glyph spill
   (hex/block characters placed by local luma), Contour trace (lines drawn along
   edges or iso-luma bands).

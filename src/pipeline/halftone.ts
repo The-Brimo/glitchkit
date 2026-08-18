@@ -8,9 +8,21 @@ const BAYER4 = [
   [15, 7, 13, 5],
 ];
 
-export function halftone(src: ImageData, params: HalftoneParams): ImageData {
+/**
+ * `renderScale` is the preview downscale factor (1 during a full render). Cell
+ * size is authored in final-render pixels, so without it a downscaled preview
+ * draws the same pixel-sized cells on a smaller frame and therefore shows a
+ * coarser pattern than the export — measured at -43.7% cells per row for bayer
+ * and -44.6% for dots on a 900px preview of a 1600px document. At renderScale 1
+ * every path below reduces to exactly its previous arithmetic, so full renders
+ * are unchanged.
+ */
+export function halftone(src: ImageData, params: HalftoneParams, renderScale = 1): ImageData {
   const levels = Math.max(2, Math.min(8, Math.round(params.levels)));
-  const scale = Math.max(2, Math.min(12, Math.round(params.scale)));
+  const authored = Math.max(2, Math.min(12, Math.round(params.scale)));
+  // Clamped at 1: below a pixel per cell the Bayer index advances faster than x
+  // and the ordered grid degenerates into aliasing noise.
+  const scale = Math.max(1, authored * renderScale);
   if (params.mode === 'diffusion') return floydSteinberg(src, levels);
   if (params.mode === 'dots') return dotScreen(src, scale);
   return bayer(src, levels, scale);
@@ -79,7 +91,18 @@ function floydSteinberg(src: ImageData, levels: number): ImageData {
 function dotScreen(src: ImageData, scale: number): ImageData {
   const { width, height, data } = src;
   const out = new Uint8ClampedArray(data.length);
-  const cell = scale * 2;
+  // Rounded to a whole number of pixels: the cell walk below indexes pixels by
+  // integer offset, so a fractional cell would desynchronise the grid from the
+  // buffer. At renderScale 1 this is exactly the previous `scale * 2`, which is
+  // why full renders are bit-identical to before renderScale existed.
+  //
+  // The rounding leaves a small residual preview error where the scaled cell
+  // lands near a half pixel — worst measured -10.4% at scale 4, against -44.6%
+  // uncorrected. Distributing fractional cell boundaries across the frame would
+  // zero it out, but it would also shift full-render output for any width not
+  // divisible by the cell, changing how already-exported recipes render. Not
+  // worth it for a preview-only artefact.
+  const cell = Math.max(2, Math.round(scale * 2));
 
   for (let cy = 0; cy < height; cy += cell) {
     for (let cx = 0; cx < width; cx += cell) {
