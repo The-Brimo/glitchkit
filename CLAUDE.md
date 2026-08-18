@@ -21,11 +21,13 @@ implementation deliberately diverges).
   take ImageData. Byte-domain ops (databend, byteops) encode→corrupt JPEG scan
   bytes→decode. **Audio Lab runs DSP on raw pixel bytes as PCM, NOT on the JPEG
   stream** — DSP on entropy-coded bytes just desyncs the decoder and yields
-  source-independent noise. jpegloop re-encodes N times. Two canvas-domain steps
-  are **additive rather than destructive**: `field` ignores its input entirely
-  and synthesises a noise/reaction field at the same size, `feedback`
-  composites the frame over itself under a repeating affine step, and `scan`
-  synthesises a CRT screen mask (also input-independent).
+  source-independent noise. jpegloop re-encodes N times. Four canvas-domain
+  steps are **additive rather than destructive**: `field` ignores its input and
+  synthesises a noise/reaction field, `feedback` composites the frame over
+  itself under a repeating affine step, `scan` synthesises a CRT screen mask
+  (also input-independent), and `glyphs` re-renders the image as terminal
+  characters (additive but input-reading — marks are new, placement and tone
+  come from the picture).
 - `src/recipe/` — versioned wire format. **The only door from untrusted input is
   `coerceRecipe` (validate.ts) → `recipeToDocument` → APPLY_RECIPE** (one undo
   entry). Producers: exported-image metadata (PNG tEXt / JPEG COM via parse.ts),
@@ -50,9 +52,13 @@ implementation deliberately diverges).
   boundaries, which would shift full-render output for widths not divisible by
   the cell and change how already-exported recipes render. Deliberately not done.
 - `STEP_CREATE` in stepTypes.ts holds per-type compositing defaults for newly
-  added steps. Destructive steps take normal/100; `field` takes overlay/70,
-  because a generative step born at normal/100 blanks the frame the instant you
-  add it.
+  added steps. Destructive steps take normal/100; `field` takes overlay/70 and
+  `scan` multiply/100, because a generative step born at normal/100 blanks the
+  frame the instant you add it. **validate.ts applies the same defaults to
+  wire steps that omit blend/opacity** — small local models routinely drop
+  "blend", and normal/1.0 on a field step replaces the whole frame. Explicit
+  wire values always win; exports are unaffected because documentToRecipe
+  writes compositing explicitly.
 - Param defaults live in `pipeline/stepTypes.ts` (STEP_DEFAULTS); `recipe/catalog.ts`
   adds ranges + `feel` strings (prompt-only, never UI). Known duplication:
   TransformPanel slider min/max are hand-written and must agree with the catalog.
@@ -85,6 +91,16 @@ implementation deliberately diverges).
   blue and a yellow cast over the whole frame. A mask can only subtract light,
   so it always dims (73% brightness retained for scanlines at strength 55, 63%
   for triad modes) — that is correct, not a bug to auto-correct.
+- `glyphs` tone mapping is measured, not assumed. Density ramps (blocks,
+  ascii) are sorted by ink coverage measured on the actual platform font at
+  runtime — conventional ramp order is not coverage-monotone ('=' inks more
+  than '+'), which rendered tone inverted (r = -0.34). Data sets (hex, binary)
+  keep semantic order and instead dim each glyph by minCoverage/coverage so
+  equal luma prints equal apparent ink ('0' is fatter than '1'; binary
+  measured r = -0.66 before, +0.90 after). Coverage must be measured **at the
+  rendered cell size on a 3x canvas** — factors from a fixed 32px reference
+  left an 18% step at the '7'/'8' boundary, and a cell-sized canvas clips
+  overflow ink. Do not replace any of this with hardcoded orderings.
 - Generative-step defaults were chosen by sweeping and measuring, and the
   obvious choice lost both times. Field: overlay/gamma 1.6/70% gives 2.92x the
   baseline luma contrast at −7.6 luma shift, where screen/gamma 1.0/70% managed
@@ -124,9 +140,8 @@ implementation deliberately diverges).
 
 ## Not done / candidate next steps
 
-- More additive steps, now that the pattern is proven three times: Glyph spill
-  (hex/block characters placed by local luma), Contour trace (lines drawn along
-  edges or iso-luma bands).
+- One more additive step candidate: Contour trace (lines drawn along edges or
+  iso-luma bands) — the only one of the original additive-step list not built.
 - Hand-authored preset library of named looks (doubles as few-shot exemplars
   for generation). More interesting now that a chain can generate its own
   imagery — a preset need not assume an imported photo.
