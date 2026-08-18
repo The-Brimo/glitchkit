@@ -62,6 +62,10 @@ export function Toolbar({ onSearch }: { onSearch: (q: string) => void }) {
       a.download = filename;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (e) {
+      // Without this an export failure is an unhandled rejection and the
+      // button just... does nothing. flash() is right there.
+      flash('error', `Export failed — ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setExporting(false);
     }

@@ -24,6 +24,7 @@ import {
   emptyRecipe,
 } from './schema';
 import { MAX_STEPS, SOURCES, TRANSFORMS, type Descriptor, type ParamSpec } from './catalog';
+import { STEP_CREATE } from '../pipeline/stepTypes';
 
 export class RecipeParseError extends Error {}
 
@@ -199,11 +200,17 @@ function coerceStep(raw: unknown, warnings: string[]): RecipeStep | null {
     }
   }
 
+  // Wire-omitted compositing falls back to the step type's creation defaults,
+  // not to normal/1.0 flat. This matters for the generative steps: a field step
+  // at normal/1.0 replaces the frame outright, and small local models routinely
+  // omit "blend" — the exact failure STEP_CREATE exists to prevent in the UI.
+  // Explicit values always win; only true omission takes the default.
+  const create = STEP_CREATE[t as keyof typeof STEP_CREATE];
   return {
     t,
     on: raw.on === undefined ? Boolean(raw.enabled ?? true) : Boolean(raw.on),
-    blend: coerceBlend(raw.blend, t, warnings),
-    opacity: clamp01(raw.opacity, 1, `${t}.opacity`, warnings),
+    blend: raw.blend === undefined ? (create?.blend ?? 'normal') : coerceBlend(raw.blend, t, warnings),
+    opacity: clamp01(raw.opacity, create ? create.opacity / 100 : 1, `${t}.opacity`, warnings),
     params: coerceParams(paramSource, desc, t, warnings),
   };
 }

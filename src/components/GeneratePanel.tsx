@@ -215,6 +215,12 @@ export function GeneratePanel() {
             />
           </Field>
 
+          {status.kind === 'ready' && models.length === 0 && (
+            <div style={{ fontSize: 11, color: '#ffb340', lineHeight: 1.5, marginBottom: 10 }}>
+              Ollama is running but has no models. Pull one first, e.g.:
+              <div style={{ fontFamily: fontMono, fontSize: 10, marginTop: 4 }}>ollama pull qwen3.6:35b-mlx</div>
+            </div>
+          )}
           <PrimaryButton disabled={busy || !instruction.trim() || !model} onClick={onGenerate}>
             {busy ? 'Generating…' : 'Generate'}
           </PrimaryButton>
