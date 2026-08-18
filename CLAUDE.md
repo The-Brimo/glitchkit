@@ -21,13 +21,27 @@ implementation deliberately diverges).
   take ImageData. Byte-domain ops (databend, byteops) encode→corrupt JPEG scan
   bytes→decode. **Audio Lab runs DSP on raw pixel bytes as PCM, NOT on the JPEG
   stream** — DSP on entropy-coded bytes just desyncs the decoder and yields
-  source-independent noise. jpegloop re-encodes N times.
+  source-independent noise. jpegloop re-encodes N times. Two canvas-domain steps
+  are **additive rather than destructive**: `field` ignores its input entirely
+  and synthesises a noise/reaction field at the same size, and `feedback`
+  composites the frame over itself under a repeating affine step.
 - `src/recipe/` — versioned wire format. **The only door from untrusted input is
   `coerceRecipe` (validate.ts) → `recipeToDocument` → APPLY_RECIPE** (one undo
   entry). Producers: exported-image metadata (PNG tEXt / JPEG COM via parse.ts),
   pasted JSON, and local Ollama generation (generate.ts). Wire opacity is 0–1
   vs internal 0–100, `on` vs `enabled` — `document.ts` is the only file that
   knows both representations. Legacy pre-recipe exports migrate in validate.ts.
+- **A step may ignore its input.** `runPipeline` ends every step with
+  `compositeOver(input, output, blend, opacity)`, so the per-step blend/opacity
+  *is* the layer-compositing system — a generative step needs no new machinery,
+  only to not read what it was handed. This is what `field` exploits. Adding
+  another generator (scanlines, glyphs, contours) is the same 5-file shape:
+  types.ts, stepTypes.ts, runner.ts, catalog.ts, TransformPanel.tsx. validate.ts
+  and prompt.ts are catalog-derived and need no per-type edit.
+- `STEP_CREATE` in stepTypes.ts holds per-type compositing defaults for newly
+  added steps. Destructive steps take normal/100; `field` takes overlay/70,
+  because a generative step born at normal/100 blanks the frame the instant you
+  add it.
 - Param defaults live in `pipeline/stepTypes.ts` (STEP_DEFAULTS); `recipe/catalog.ts`
   adds ranges + `feel` strings (prompt-only, never UI). Known duplication:
   TransformPanel slider min/max are hand-written and must agree with the catalog.
@@ -47,7 +61,19 @@ implementation deliberately diverges).
   nonzero setting does something. Slice Shuffle selects ≥2 slices and uses
   Sattolo's algorithm (cyclic permutation, no fixed points). Byte Ops applies
   its op at least once (identity settings like xor 0 still correctly do
-  nothing). Pixel Sort treats low/high as an unordered band.
+  nothing). Pixel Sort treats low/high as an unordered band. Feedback applies a
+  minimum zoom when zoom/rotate/dx/dy are all zero (every copy would otherwise
+  land on the original), and its trail falloff is a gamma curve **normalised to
+  the requested echo count** — a plain `retention^i` fades out after a fixed
+  number of copies regardless of the slider, which measured as a hard dead zone
+  over the top 40% of the range.
+- Generative-step defaults were chosen by sweeping and measuring, and the
+  obvious choice lost both times. Field: overlay/gamma 1.6/70% gives 2.92x the
+  baseline luma contrast at −7.6 luma shift, where screen/gamma 1.0/70% managed
+  1.50x while washing the frame out by +50 (a mean-brightness field composites
+  as flat haze). Feedback: `normal` echoes, because `screen` lifted mean luma
+  by +111 on a ~133 baseline on every base image tried. Re-measure before
+  changing either.
 - Ollama generation: the `format` JSON schema is enforced on llama.cpp/GGUF
   backends but **silently ignored on MLX** — the worked example in
   `recipe/prompt.ts` is what keeps MLX models on-shape; do not remove it on the
@@ -80,8 +106,12 @@ implementation deliberately diverges).
 
 ## Not done / candidate next steps
 
+- More additive steps, now that the pattern is proven: Scan/CRT (synthesised
+  raster, scanlines, rolling bar), Glyph spill (hex/block characters placed by
+  local luma), Contour trace (lines drawn along edges or iso-luma bands).
 - Hand-authored preset library of named looks (doubles as few-shot exemplars
-  for generation).
+  for generation). More interesting now that a chain can generate its own
+  imagery — a preset need not assume an imported photo.
 - Session persistence — reloading the page resets the document and snapshots.
 - GitHub Pages deploy via an Actions workflow (offered, never requested).
 - Inspector panels reading slider ranges from the recipe catalog (removes the
