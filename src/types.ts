@@ -11,7 +11,8 @@ export type StepType =
   | 'audiolab'
   | 'jpegloop'
   | 'sliceshuffle'
-  | 'halftone';
+  | 'halftone'
+  | 'field';
 
 export type BlendMode =
   | 'normal'
@@ -85,6 +86,29 @@ export interface HalftoneParams {
   scale: number; // 2..12 cell size (bayer & dot screen)
 }
 
+/**
+ * The one generative step: it ignores its input entirely and synthesises a
+ * fresh field, which the pipeline's existing per-step blend + opacity then
+ * composites over the image. Carries the full generator config rather than
+ * reading the document's, so several Field steps in one chain can differ.
+ */
+export interface FieldParams {
+  generator: Generator;
+  // noise
+  octaves: number;
+  freq: number;
+  warp: number;
+  // reaction
+  preset: ReactionPreset;
+  steps: number;
+  sim: number;
+  // shared colouring
+  palette: PaletteName;
+  gamma: number;
+  invert: boolean;
+  seed: number;
+}
+
 export type StepParams =
   | PixelSortParams
   | DatabendParams
@@ -94,7 +118,8 @@ export type StepParams =
   | AudioLabParams
   | JpegLoopParams
   | SliceShuffleParams
-  | HalftoneParams;
+  | HalftoneParams
+  | FieldParams;
 
 export interface Step {
   id: string;

@@ -1,5 +1,5 @@
 import type { BlendMode, Document, Snapshot, Step, StepParams, StepType } from '../types';
-import { STEP_DEFAULTS } from '../pipeline/stepTypes';
+import { STEP_CREATE, STEP_DEFAULTS } from '../pipeline/stepTypes';
 import type { Recipe } from '../recipe/schema';
 import { recipeToDocument } from '../recipe/document';
 
@@ -58,12 +58,13 @@ export function docReducer(doc: Document, action: DocAction): Document {
       return { ...doc, chain };
     }
     case 'ADD_STEP': {
+      const create = STEP_CREATE[action.stepType];
       const step: Step = {
         id: action.id,
         type: action.stepType,
         enabled: true,
-        blend: 'normal' as BlendMode,
-        opacity: 100,
+        blend: (create?.blend ?? 'normal') as BlendMode,
+        opacity: create?.opacity ?? 100,
         params: STEP_DEFAULTS[action.stepType](),
       };
       return { ...doc, chain: [...doc.chain, step] };

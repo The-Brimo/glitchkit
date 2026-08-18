@@ -9,6 +9,8 @@ import type {
   JpegLoopParams,
   SliceShuffleParams,
   HalftoneParams,
+  FieldParams,
+  BlendMode,
   StepType,
 } from '../types';
 
@@ -22,6 +24,7 @@ export const STEP_LABELS: Record<StepType, string> = {
   jpegloop: 'JPEG Loop',
   sliceshuffle: 'Slice Shuffle',
   halftone: 'Halftone',
+  field: 'Field',
 };
 
 export const STEP_DEFAULTS = {
@@ -34,6 +37,38 @@ export const STEP_DEFAULTS = {
   jpegloop: (): JpegLoopParams => ({ iterations: 10, quality: 20, drive: 30 }),
   sliceshuffle: (): SliceShuffleParams => ({ axis: 'rows', slices: 12, amount: 60, seed: 7 }),
   halftone: (): HalftoneParams => ({ mode: 'bayer', levels: 2, scale: 4 }),
+  // Two defaults differ from the source generator's on purpose, both measured
+  // against the stock chain: freq 6 (vs 4) because large slow shapes just tint
+  // the frame instead of reading as texture, and gamma 1.6 (vs 1) because a
+  // mean-0.5 noise field composites as flat haze. Sweeping blend x gamma x
+  // opacity, overlay/1.6/70 gave 2.92x the baseline luma contrast at only -7.6
+  // mean luma shift; the obvious-looking screen/1.0/70 managed 1.50x while
+  // washing the image out by +50.
+  field: (): FieldParams => ({
+    generator: 'noise',
+    octaves: 6,
+    freq: 6,
+    warp: 1.2,
+    preset: 'coral',
+    steps: 3000,
+    sim: 140,
+    palette: 'mono',
+    gamma: 1.6,
+    invert: false,
+    seed: 7,
+  }),
+};
+
+/**
+ * Compositing a step is born with. Destructive steps want normal/100 — they
+ * damage what they were handed, so replacing it wholesale is the point. Field
+ * ignores its input and synthesises new pixels, so normal/100 would blank the
+ * frame the instant you add one. Overlay at 70 was the measured best of the
+ * blend/gamma/opacity sweep (see the field defaults above). Anything absent
+ * here gets normal/100.
+ */
+export const STEP_CREATE: Partial<Record<StepType, { blend: BlendMode; opacity: number }>> = {
+  field: { blend: 'overlay', opacity: 70 },
 };
 
 export const AUDIO_LABELS: Record<AudioEffect, { time: string; depth: string }> = {
@@ -46,6 +81,7 @@ export const AUDIO_LABELS: Record<AudioEffect, { time: string; depth: string }> 
 };
 
 export const ADD_TRANSFORM_OPTIONS: { type: StepType; label: string }[] = [
+  { type: 'field', label: 'Field (generate noise / reaction)' },
   { type: 'pixelsort', label: 'Pixel Sort' },
   { type: 'databend', label: 'Databend' },
   { type: 'channelshift', label: 'Channel Shift' },

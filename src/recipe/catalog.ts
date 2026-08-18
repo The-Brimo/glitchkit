@@ -33,6 +33,7 @@ import type {
   JpegLoopParams,
   PixelSortParams,
   SliceShuffleParams,
+  FieldParams,
 } from '../types';
 
 /**
@@ -73,6 +74,7 @@ const D = {
   jpegloop: STEP_DEFAULTS.jpegloop() as JpegLoopParams,
   sliceshuffle: STEP_DEFAULTS.sliceshuffle() as SliceShuffleParams,
   halftone: STEP_DEFAULTS.halftone() as HalftoneParams,
+  field: STEP_DEFAULTS.field() as FieldParams,
 };
 
 /** Seeds are filled client-side so repeated generations vary. */
@@ -89,8 +91,9 @@ const seedSpec = (dflt: number): ParamSpec => ({
 
 export const PALETTES = ['ember', 'ice', 'magma', 'acid', 'mono'] as const;
 
-// Shared by both generators — these live on the Document, not on a sub-object.
-const COMMON_SOURCE_PARAMS: Record<string, ParamSpec> = {
+// How a generated field gets coloured. Shared by both sources and by the
+// `field` transform, which runs the same generators mid-chain.
+const COLOUR_PARAMS: Record<string, ParamSpec> = {
   palette: {
     type: 'enum',
     of: PALETTES,
@@ -105,6 +108,11 @@ const COMMON_SOURCE_PARAMS: Record<string, ParamSpec> = {
     feel: 'above 1 darkens the midtones for a glowing-core look, below 1 lifts and flattens them',
   },
   invert: { type: 'boolean', default: false },
+};
+
+// Shared by both generators — these live on the Document, not on a sub-object.
+const COMMON_SOURCE_PARAMS: Record<string, ParamSpec> = {
+  ...COLOUR_PARAMS,
   seed: seedSpec(7),
   width: { type: 'number', min: 16, max: 4096, default: 1600, int: true, promptOmit: true },
   height: { type: 'number', min: 16, max: 4096, default: 900, int: true, promptOmit: true },
@@ -425,6 +433,65 @@ export const TRANSFORMS: Record<string, Descriptor> = {
       },
     },
   },
+  field: {
+    summary:
+      'The one ADDITIVE step. Ignores the image it is handed and synthesises a fresh noise or reaction-diffusion field at the same size; the step’s own blend and opacity then composite it over the picture. Use it to layer texture into a chain rather than to damage what is already there — screen and overlay add light structure, difference bites holes in it.',
+    params: {
+      generator: {
+        type: 'enum',
+        of: ['noise', 'reaction'],
+        default: D.field.generator,
+        feel: 'noise is cloudy, flowing and cheap to render; reaction is biological and self-organising but much slower, so prefer noise unless the alien structure is the point',
+      },
+      octaves: {
+        type: 'number',
+        min: 3,
+        max: 8,
+        default: D.field.octaves,
+        int: true,
+        feel: 'noise only. 3 soft broad forms, 6 balanced detail, 8 busy and fine-grained',
+      },
+      freq: {
+        type: 'number',
+        min: 1,
+        max: 10,
+        default: D.field.freq,
+        int: true,
+        feel: 'noise only. As an overlay this matters more than at source: low just tints the frame in broad patches, 6+ reads as actual texture sitting on the image',
+      },
+      warp: {
+        type: 'number',
+        min: 0,
+        max: 2,
+        default: D.field.warp,
+        feel: 'noise only. 0 clean layered noise, 1 marbled and swirled, 2 heavily smeared and liquid',
+      },
+      preset: {
+        type: 'enum',
+        of: ['coral', 'maze', 'spots', 'mitosis', 'fingerprint', 'flower'],
+        default: D.field.preset,
+        feel: 'reaction only. coral branching growth, maze dense labyrinth, spots isolated cells, mitosis dividing blobs, fingerprint ridged whorls, flower radial bloom',
+      },
+      steps: {
+        type: 'number',
+        min: 1000,
+        max: 10000,
+        default: D.field.steps,
+        int: true,
+        feel: 'reaction only. How far the sim runs; more = more developed pattern and a slower render. Live preview caps this, so the final render shows more structure than the preview does.',
+      },
+      sim: {
+        type: 'number',
+        min: 100,
+        max: 300,
+        default: D.field.sim,
+        int: true,
+        feel: 'reaction only. Internal grid resolution; higher = finer structure, disproportionately slower',
+      },
+      ...COLOUR_PARAMS,
+      seed: seedSpec(D.field.seed),
+    },
+  },
 };
 
 /* ── Chain guidance ──────────────────────────────────────────────── */
@@ -441,6 +508,9 @@ export const CHAIN_NOTES = [
   'Two byte-domain steps back to back usually destroys the image. Separate them with a pixel-domain step.',
   'Three to five steps is the sweet spot. Above seven, individual steps stop being legible in the result.',
   'Every step has a blend mode and opacity. Dropping a destructive step to 40–60% opacity, or blending it with screen or overlay, is often the difference between texture and mud.',
+  'field is the only step that ADDS imagery instead of damaging it, so it is the one step that needs a non-normal blend to be useful: at normal/1.0 it simply replaces the frame. Overlay at 0.6–0.8 measured best for adding texture without shifting overall brightness; screen lifts and glows, difference bites holes. Raise its gamma above 1.5 with overlay or screen — a mean-brightness field composites as flat haze.',
+  'A field step early in the chain gives later steps new structure to chew on — pixelsort and displace read the layered result, not the bare source. Late instead, it reads as an overlay laid on top of finished damage. Both are valid; they look completely different.',
+  'field with generator "reaction" is by far the slowest thing in the tool. One per chain at most, and only when its biological structure is actually the look being asked for.',
 ] as const;
 
 export const MAX_STEPS = 12;

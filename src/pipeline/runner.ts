@@ -1,4 +1,4 @@
-import type { Document, Step } from '../types';
+import type { Document, FieldParams, Step } from '../types';
 import { generateNoiseField } from './noise';
 import { generateReactionField } from './reaction';
 import { fieldToImageData } from './palette';
@@ -98,9 +98,47 @@ export async function generateSourceCanvas(doc: Document, opts: RunOptions): Pro
 
 async function runTransform(
   input: HTMLCanvasElement,
-  step: Step
+  step: Step,
+  opts: RunOptions,
+  onStepProgress?: (fraction: number) => void
 ): Promise<{ canvas: HTMLCanvasElement; error?: string }> {
   try {
+    // The one step that reads nothing from its input but its dimensions: it
+    // synthesises a field, and runPipeline's existing compositeOver blends it
+    // in. Nothing in this contract requires a step to use what it was handed.
+    if (step.type === 'field') {
+      const p = step.params as FieldParams;
+      const { width, height } = input;
+      let field: Float32Array;
+      if (p.generator === 'reaction') {
+        // Same preview clamps as the source path — the sim cost is steps x sim^2
+        // and is unrelated to canvas size, so an unclamped field step would stall
+        // every debounced preview render.
+        const steps = opts.quality === 'preview' ? Math.min(p.steps, 800) : p.steps;
+        const sim = opts.quality === 'preview' ? Math.min(p.sim, 120) : p.sim;
+        field = await generateReactionField({
+          seed: p.seed,
+          width,
+          height,
+          preset: p.preset,
+          steps,
+          sim,
+          onProgress: onStepProgress,
+        });
+      } else {
+        field = generateNoiseField({
+          seed: p.seed,
+          width,
+          height,
+          octaves: p.octaves,
+          freq: p.freq,
+          warp: p.warp,
+        });
+      }
+      const out = fieldToImageData(field, width, height, p.palette, p.gamma, p.invert);
+      return { canvas: canvasFromImageData(out) };
+    }
+
     if (step.type === 'pixelsort') {
       const out = pixelSort(imageDataFromCanvas(input), step.params as any);
       return { canvas: canvasFromImageData(out) };
@@ -195,7 +233,10 @@ export async function runPipeline(doc: Document, opts: RunOptions): Promise<RunR
       if (!step.enabled) continue;
       opts.onProgress?.(i / Math.max(1, enabledCount), `rendering ${step.type}`);
       const input = canvas;
-      const { canvas: transformed, error } = await runTransform(input, step);
+      const stepIndex = i;
+      const { canvas: transformed, error } = await runTransform(input, step, opts, (f) =>
+        opts.onProgress?.((stepIndex + f) / Math.max(1, enabledCount), `rendering ${step.type}`)
+      );
       if (error) stepErrors[step.id] = error;
       canvas = compositeOver(input, transformed, step.blend, step.opacity);
       i++;

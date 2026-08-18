@@ -11,6 +11,7 @@ import type {
   JpegLoopParams,
   SliceShuffleParams,
   HalftoneParams,
+  FieldParams,
   BlendMode,
 } from '../types';
 import { Field, SelectField, Slider, NumberField, Toggle, SectionHeader, DividerLine, Footnote, DestructiveButton } from './controls';
@@ -50,6 +51,7 @@ export function TransformPanel({ step }: { step: Step }) {
       {step.type === 'jpegloop' && <JpegLoopControls params={step.params as JpegLoopParams} patchParam={patchParam} />}
       {step.type === 'sliceshuffle' && <SliceShuffleControls params={step.params as SliceShuffleParams} patchParam={patchParam} />}
       {step.type === 'halftone' && <HalftoneControls params={step.params as HalftoneParams} patchParam={patchParam} />}
+      {step.type === 'field' && <FieldControls params={step.params as FieldParams} patchParam={patchParam} />}
 
       <DividerLine />
       <SectionHeader>Compositing</SectionHeader>
@@ -76,6 +78,79 @@ export function TransformPanel({ step }: { step: Step }) {
 }
 
 type Patch = (key: string, value: unknown, historyKey?: string) => void;
+
+// Only the active generator's controls are shown — the inactive set stays in
+// the params so switching back and forth doesn't lose your settings.
+function FieldControls({ params, patchParam }: { params: FieldParams; patchParam: Patch }) {
+  return (
+    <>
+      <Field label="Generator">
+        <SelectField
+          value={params.generator}
+          onChange={(v) => patchParam('generator', v)}
+          options={[
+            { value: 'noise', label: 'noise' },
+            { value: 'reaction', label: 'reaction-diffusion' },
+          ]}
+        />
+      </Field>
+
+      {params.generator === 'noise' ? (
+        <>
+          <Slider label="Octaves" value={params.octaves} min={3} max={8} step={1} onChange={(v) => patchParam('octaves', v, 'fldoct')} />
+          <Slider label="Frequency" value={params.freq} min={1} max={10} step={1} onChange={(v) => patchParam('freq', v, 'fldfreq')} />
+          <Slider label="Warp" value={params.warp} min={0} max={2} step={0.1} onChange={(v) => patchParam('warp', v, 'fldwarp')} />
+        </>
+      ) : (
+        <>
+          <Field label="Pattern">
+            <SelectField
+              value={params.preset}
+              onChange={(v) => patchParam('preset', v)}
+              options={[
+                { value: 'coral', label: 'coral' },
+                { value: 'maze', label: 'maze' },
+                { value: 'spots', label: 'spots' },
+                { value: 'mitosis', label: 'mitosis' },
+                { value: 'fingerprint', label: 'fingerprint' },
+                { value: 'flower', label: 'flower' },
+              ]}
+            />
+          </Field>
+          <Slider label="Sim steps" value={params.steps} min={1000} max={10000} step={100} onChange={(v) => patchParam('steps', v, 'fldsteps')} />
+          <Slider label="Sim resolution" value={params.sim} min={100} max={300} step={10} onChange={(v) => patchParam('sim', v, 'fldsim')} />
+        </>
+      )}
+
+      <Field label="Palette">
+        <SelectField
+          value={params.palette}
+          onChange={(v) => patchParam('palette', v)}
+          options={[
+            { value: 'ember', label: 'ember' },
+            { value: 'ice', label: 'ice' },
+            { value: 'magma', label: 'magma' },
+            { value: 'acid', label: 'acid' },
+            { value: 'mono', label: 'mono' },
+          ]}
+        />
+      </Field>
+      <Slider label="Gamma" value={params.gamma} min={0.5} max={2.5} step={0.1} onChange={(v) => patchParam('gamma', v, 'fldgamma')} />
+      <div onClick={() => patchParam('invert', !params.invert)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 10 }}>
+        <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', cursor: 'pointer' }}>Invert</label>
+        <Toggle checked={params.invert} onChange={(v) => patchParam('invert', v)} />
+      </div>
+      <Field label="Seed" marginBottom={0}>
+        <NumberField value={params.seed} onChange={(v) => patchParam('seed', v, 'fldseed')} />
+      </Field>
+      <Footnote>
+        generates a new field and blends it over the image — it ignores what the previous step produced, so the blend mode
+        and opacity below are what make it visible. At normal / 100% it replaces the frame.
+        {params.generator === 'reaction' && ' Live preview runs a shortened sim; the full render develops further.'}
+      </Footnote>
+    </>
+  );
+}
 
 function PixelSortControls({ params, patchParam }: { params: PixelSortParams; patchParam: Patch }) {
   return (
