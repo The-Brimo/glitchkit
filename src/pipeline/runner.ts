@@ -1,4 +1,4 @@
-import type { Document, FeedbackParams, FieldParams, Step } from '../types';
+import type { Document, FeedbackParams, FieldParams, ScanParams, Step } from '../types';
 import { generateNoiseField } from './noise';
 import { generateReactionField } from './reaction';
 import { fieldToImageData } from './palette';
@@ -8,6 +8,7 @@ import { displace } from './displace';
 import { sliceShuffle } from './sliceShuffle';
 import { halftone } from './halftone';
 import { feedback } from './feedback';
+import { scanMask } from './scan';
 import { jpegLoop } from './jpegLoop';
 import { applyDatabend } from './databend';
 import { applyByteOps } from './byteOps';
@@ -101,9 +102,16 @@ async function runTransform(
   input: HTMLCanvasElement,
   step: Step,
   opts: RunOptions,
+  renderScale: number,
   onStepProgress?: (fraction: number) => void
 ): Promise<{ canvas: HTMLCanvasElement; error?: string }> {
   try {
+    if (step.type === 'scan') {
+      // Also input-independent: returns the screen, not the picture behind it.
+      const out = scanMask(input.width, input.height, step.params as ScanParams, renderScale);
+      return { canvas: canvasFromImageData(out) };
+    }
+
     // The one step that reads nothing from its input but its dimensions: it
     // synthesises a field, and runPipeline's existing compositeOver blends it
     // in. Nothing in this contract requires a step to use what it was handed.
@@ -231,6 +239,20 @@ export async function runPipeline(doc: Document, opts: RunOptions): Promise<RunR
 
   let canvas = needsImage ? null : await generateSourceCanvas(doc, opts);
 
+  // Steps whose parameters are authored in final-render pixels (the scan mask's
+  // pitch) need to know how much the preview shrank, or the live preview shows a
+  // visibly coarser pattern than the exported image. Measured on halftone, whose
+  // cell size has this same latent mismatch: a 900px preview of a 1600px document
+  // renders the pattern 1.78x coarser relative to the frame.
+  let renderScale = 1;
+  if (canvas && opts.quality === 'preview') {
+    let fullWidth = doc.width;
+    if (doc.sourceMode === 'imported' && doc.imageDataURL) {
+      fullWidth = (await loadImage(doc.imageDataURL)).naturalWidth;
+    }
+    if (fullWidth > 0) renderScale = canvas.width / fullWidth;
+  }
+
   if (canvas) {
     const enabledCount = doc.chain.filter((s) => s.enabled).length;
     let i = 0;
@@ -239,7 +261,7 @@ export async function runPipeline(doc: Document, opts: RunOptions): Promise<RunR
       opts.onProgress?.(i / Math.max(1, enabledCount), `rendering ${step.type}`);
       const input = canvas;
       const stepIndex = i;
-      const { canvas: transformed, error } = await runTransform(input, step, opts, (f) =>
+      const { canvas: transformed, error } = await runTransform(input, step, opts, renderScale, (f) =>
         opts.onProgress?.((stepIndex + f) / Math.max(1, enabledCount), `rendering ${step.type}`)
       );
       if (error) stepErrors[step.id] = error;

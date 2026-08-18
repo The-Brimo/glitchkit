@@ -11,6 +11,7 @@ import type {
   HalftoneParams,
   FieldParams,
   FeedbackParams,
+  ScanParams,
   BlendMode,
   StepType,
 } from '../types';
@@ -27,6 +28,7 @@ export const STEP_LABELS: Record<StepType, string> = {
   halftone: 'Halftone',
   field: 'Field',
   feedback: 'Feedback',
+  scan: 'Scan / CRT',
 };
 
 export const STEP_DEFAULTS = {
@@ -72,6 +74,13 @@ export const STEP_DEFAULTS = {
     // structured input (a halftoned frame). screen stays available as a choice.
     echoBlend: 'normal',
   }),
+  scan: (): ScanParams => ({
+    mode: 'scanlines',
+    pitch: 4,
+    strength: 55,
+    roll: 0,
+    rollPos: 50,
+  }),
 };
 
 /**
@@ -84,6 +93,9 @@ export const STEP_DEFAULTS = {
  */
 export const STEP_CREATE: Partial<Record<StepType, { blend: BlendMode; opacity: number }>> = {
   field: { blend: 'overlay', opacity: 70 },
+  // A screen mask is white where light passes and dark where it is blocked, so
+  // multiply is not a stylistic choice here — it is what the mask means.
+  scan: { blend: 'multiply', opacity: 100 },
 };
 
 export const AUDIO_LABELS: Record<AudioEffect, { time: string; depth: string }> = {
@@ -98,6 +110,7 @@ export const AUDIO_LABELS: Record<AudioEffect, { time: string; depth: string }> 
 export const ADD_TRANSFORM_OPTIONS: { type: StepType; label: string }[] = [
   { type: 'field', label: 'Field (generate noise / reaction)' },
   { type: 'feedback', label: 'Feedback (echo trails)' },
+  { type: 'scan', label: 'Scan / CRT (screen mask)' },
   { type: 'pixelsort', label: 'Pixel Sort' },
   { type: 'databend', label: 'Databend' },
   { type: 'channelshift', label: 'Channel Shift' },

@@ -35,6 +35,7 @@ import type {
   SliceShuffleParams,
   FieldParams,
   FeedbackParams,
+  ScanParams,
 } from '../types';
 
 /**
@@ -77,6 +78,7 @@ const D = {
   halftone: STEP_DEFAULTS.halftone() as HalftoneParams,
   field: STEP_DEFAULTS.field() as FieldParams,
   feedback: STEP_DEFAULTS.feedback() as FeedbackParams,
+  scan: STEP_DEFAULTS.scan() as ScanParams,
 };
 
 /** Seeds are filled client-side so repeated generations vary. */
@@ -552,6 +554,50 @@ export const TRANSFORMS: Record<string, Descriptor> = {
       },
     },
   },
+  scan: {
+    summary:
+      'ADDITIVE. Synthesises a CRT screen — scanlines, aperture grille or shadow mask, with an optional hum bar — and lays it over the frame. It generates the mask and ignores the picture behind it, so it wants the multiply blend it is created with: the mask is white where light passes and dark where the shadow mask blocks it. This is the screen-artifact vocabulary the byte-level and JPEG steps cannot produce; reach for it when the ask mentions CRT, VHS, monitor, arcade, phosphor or old TV.',
+    params: {
+      mode: {
+        type: 'enum',
+        of: ['scanlines', 'grille', 'shadowmask'],
+        default: D.scan.mode,
+        feel: 'scanlines are horizontal raster lines and the cheapest read of "old monitor"; grille is Trinitron-style vertical RGB phosphor stripes and colours the whole image; shadowmask is staggered RGB dot triads, the most textured and the most obviously a screen up close',
+      },
+      pitch: {
+        type: 'number',
+        min: 2,
+        max: 24,
+        default: D.scan.pitch,
+        int: true,
+        feel: 'spacing in pixels at final render size. 2-3 is a fine screen that reads as texture, 6-10 looks like a photograph of a monitor, 16+ is a stylised graphic grid. Triad modes snap this to the nearest multiple of 3 (minimum 3) so the three phosphors get equal columns and the frame picks up no colour cast',
+      },
+      strength: {
+        type: 'number',
+        min: 0,
+        max: 100,
+        default: D.scan.strength,
+        int: true,
+        feel: 'how hard the mask blocks light. 0 is off entirely, 30 is a subtle overlay, 55 reads clearly as a screen, 100 crushes the blocked cells to black. A mask can only subtract light, so it always dims: measured brightness retained is 85/73/50 percent for scanlines at strength 30/55/100 and 80/63/33 for the triad modes, which block two channels instead of half the rows. If the result is too dark, lower this rather than fighting it downstream',
+      },
+      roll: {
+        type: 'number',
+        min: 0,
+        max: 100,
+        default: D.scan.roll,
+        int: true,
+        feel: 'height of the hum bar as a percentage of the frame — the soft dark band you get photographing a CRT out of sync. 0 is no bar, 15-30 is a believable band, 80+ shades most of the frame. Its depth follows strength',
+      },
+      rollPos: {
+        type: 'number',
+        min: 0,
+        max: 100,
+        default: D.scan.rollPos,
+        int: true,
+        feel: 'where the hum bar sits vertically, 0 top to 100 bottom. Irrelevant when roll is 0',
+      },
+    },
+  },
 };
 
 /* ── Chain guidance ──────────────────────────────────────────────── */
@@ -573,6 +619,8 @@ export const CHAIN_NOTES = [
   'field with generator "reaction" is by far the slowest thing in the tool. One per chain at most, and only when its biological structure is actually the look being asked for.',
   'feedback smears whatever it is given, so it reads very differently before and after a hard-edged step: after pixelsort it drags the streaks into comet tails, after sliceshuffle it multiplies the cuts into a shuffled tunnel. It is also the natural partner for field — generate a field, then feedback to spin it into structure.',
   'feedback does not degrade the image the way the byte-level steps do, so it is safe late in a chain, including after halftone.',
+  'scan belongs LAST, or very near it. It is the screen the finished image is being displayed on, so anything after it is compositing on top of the glass — and putting a byte-level step after it is actively bad, since a fine regular mask is close to worst-case input for JPEG compression, the same reason halftone must come after databend rather than before.',
+  'scan and halftone both impose a regular grid and fight each other for the same visual role. Pick one, or give them clearly different pitches so the result reads as texture rather than moire.',
   'feedback needs edges to smear. On a hard-edged frame (after halftone, sliceshuffle or a heavy pixelsort) it transforms the image; on a soft cloudy one it barely registers, because offset copies of a cloud average back into the same cloud. If a chain is all soft gradients, put something hard-edged before the feedback or skip it.',
 ] as const;
 

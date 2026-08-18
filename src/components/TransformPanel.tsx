@@ -13,6 +13,7 @@ import type {
   HalftoneParams,
   FieldParams,
   FeedbackParams,
+  ScanParams,
   BlendMode,
 } from '../types';
 import { Field, SelectField, Slider, NumberField, Toggle, SectionHeader, DividerLine, Footnote, DestructiveButton } from './controls';
@@ -54,6 +55,7 @@ export function TransformPanel({ step }: { step: Step }) {
       {step.type === 'halftone' && <HalftoneControls params={step.params as HalftoneParams} patchParam={patchParam} />}
       {step.type === 'field' && <FieldControls params={step.params as FieldParams} patchParam={patchParam} />}
       {step.type === 'feedback' && <FeedbackControls params={step.params as FeedbackParams} patchParam={patchParam} />}
+      {step.type === 'scan' && <ScanControls params={step.params as ScanParams} patchParam={patchParam} />}
 
       <DividerLine />
       <SectionHeader>Compositing</SectionHeader>
@@ -80,6 +82,46 @@ export function TransformPanel({ step }: { step: Step }) {
 }
 
 type Patch = (key: string, value: unknown, historyKey?: string) => void;
+
+function ScanControls({ params, patchParam }: { params: ScanParams; patchParam: Patch }) {
+  // Triad masks snap to a multiple of 3 so the phosphors stay balanced.
+  const effectivePitch = params.mode === 'scanlines' ? params.pitch : Math.max(3, Math.round(params.pitch / 3) * 3);
+  return (
+    <>
+      <Field label="Mask">
+        <SelectField
+          value={params.mode}
+          onChange={(v) => patchParam('mode', v)}
+          options={[
+            { value: 'scanlines', label: 'scanlines' },
+            { value: 'grille', label: 'aperture grille' },
+            { value: 'shadowmask', label: 'shadow mask' },
+          ]}
+        />
+      </Field>
+      <Slider
+        label={effectivePitch === params.pitch ? 'Pitch' : `Pitch (using ${effectivePitch})`}
+        value={params.pitch}
+        min={2}
+        max={24}
+        step={1}
+        unit=" px"
+        onChange={(v) => patchParam('pitch', v, 'scpitch')}
+      />
+      <Slider label="Strength" value={params.strength} min={0} max={100} step={1} unit="%" onChange={(v) => patchParam('strength', v, 'scstr')} />
+      <Slider label="Hum bar size" value={params.roll} min={0} max={100} step={1} unit="%" onChange={(v) => patchParam('roll', v, 'scroll')} />
+      {params.roll > 0 && (
+        <Slider label="Hum bar position" value={params.rollPos} min={0} max={100} step={1} unit="%" onChange={(v) => patchParam('rollPos', v, 'scrollpos')} />
+      )}
+      <Footnote>
+        {params.mode === 'scanlines'
+          ? 'pitch is measured at full render size, so the preview matches what you export.'
+          : 'triad pitch snaps to a multiple of 3 so red, green and blue get equal columns — otherwise one phosphor is starved and the frame picks up a colour cast. Pitch is measured at full render size, so the preview matches what you export.'}
+        {' '}Multiply is the blend that makes a screen mask mean what it says; strength 0 is an exact no-op.
+      </Footnote>
+    </>
+  );
+}
 
 function FeedbackControls({ params, patchParam }: { params: FeedbackParams; patchParam: Patch }) {
   const still = params.zoom === 0 && params.rotate === 0 && params.dx === 0 && params.dy === 0;

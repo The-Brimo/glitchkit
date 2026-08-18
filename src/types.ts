@@ -13,7 +13,8 @@ export type StepType =
   | 'sliceshuffle'
   | 'halftone'
   | 'field'
-  | 'feedback';
+  | 'feedback'
+  | 'scan';
 
 export type BlendMode =
   | 'normal'
@@ -110,6 +111,20 @@ export interface FieldParams {
   seed: number;
 }
 
+export type ScanMode = 'scanlines' | 'grille' | 'shadowmask';
+
+/**
+ * Synthesised CRT screen. Like FieldParams this describes something generated
+ * rather than something done to the image.
+ */
+export interface ScanParams {
+  mode: ScanMode;
+  pitch: number; // px at final render resolution
+  strength: number; // 0..100 — how hard the mask blocks light
+  roll: number; // 0..100 — hum bar height as % of frame; 0 = no bar
+  rollPos: number; // 0..100 — vertical position of the bar
+}
+
 export type EchoBlend = 'normal' | 'screen' | 'lighten' | 'difference';
 
 /**
@@ -137,7 +152,8 @@ export type StepParams =
   | SliceShuffleParams
   | HalftoneParams
   | FieldParams
-  | FeedbackParams;
+  | FeedbackParams
+  | ScanParams;
 
 export interface Step {
   id: string;
