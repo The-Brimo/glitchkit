@@ -14,7 +14,8 @@ export type StepType =
   | 'halftone'
   | 'field'
   | 'feedback'
-  | 'scan';
+  | 'scan'
+  | 'glyphs';
 
 export type BlendMode =
   | 'normal'
@@ -125,6 +126,19 @@ export interface ScanParams {
   rollPos: number; // 0..100 — vertical position of the bar
 }
 
+export type GlyphCharset = 'hex' | 'blocks' | 'ascii' | 'binary';
+export type GlyphInk = 'sample' | 'green' | 'amber' | 'white';
+
+/** Additive but input-reading: new marks, placed and coloured by the image. */
+export interface GlyphParams {
+  charset: GlyphCharset;
+  cell: number; // px at final render resolution
+  ink: GlyphInk;
+  scramble: number; // 0..100 — % of cells given the wrong glyph
+  seed: number;
+  invert: boolean;
+}
+
 export type EchoBlend = 'normal' | 'screen' | 'lighten' | 'difference';
 
 /**
@@ -153,7 +167,8 @@ export type StepParams =
   | HalftoneParams
   | FieldParams
   | FeedbackParams
-  | ScanParams;
+  | ScanParams
+  | GlyphParams;
 
 export interface Step {
   id: string;

@@ -14,6 +14,7 @@ import type {
   FieldParams,
   FeedbackParams,
   ScanParams,
+  GlyphParams,
   BlendMode,
 } from '../types';
 import { Field, SelectField, Slider, NumberField, Toggle, SectionHeader, DividerLine, Footnote, DestructiveButton } from './controls';
@@ -56,6 +57,7 @@ export function TransformPanel({ step }: { step: Step }) {
       {step.type === 'field' && <FieldControls params={step.params as FieldParams} patchParam={patchParam} />}
       {step.type === 'feedback' && <FeedbackControls params={step.params as FeedbackParams} patchParam={patchParam} />}
       {step.type === 'scan' && <ScanControls params={step.params as ScanParams} patchParam={patchParam} />}
+      {step.type === 'glyphs' && <GlyphControls params={step.params as GlyphParams} patchParam={patchParam} />}
 
       <DividerLine />
       <SectionHeader>Compositing</SectionHeader>
@@ -82,6 +84,53 @@ export function TransformPanel({ step }: { step: Step }) {
 }
 
 type Patch = (key: string, value: unknown, historyKey?: string) => void;
+
+function GlyphControls({ params, patchParam }: { params: GlyphParams; patchParam: Patch }) {
+  return (
+    <>
+      <Field label="Character set">
+        <SelectField
+          value={params.charset}
+          onChange={(v) => patchParam('charset', v)}
+          options={[
+            { value: 'hex', label: 'hex dump' },
+            { value: 'blocks', label: 'block shading' },
+            { value: 'ascii', label: 'ascii ramp' },
+            { value: 'binary', label: 'binary' },
+          ]}
+        />
+      </Field>
+      <Field label="Ink">
+        <SelectField
+          value={params.ink}
+          onChange={(v) => patchParam('ink', v)}
+          options={[
+            { value: 'sample', label: 'image colour' },
+            { value: 'green', label: 'phosphor green' },
+            { value: 'amber', label: 'phosphor amber' },
+            { value: 'white', label: 'white' },
+          ]}
+        />
+      </Field>
+      <Slider label="Cell size" value={params.cell} min={6} max={32} step={1} unit=" px" onChange={(v) => patchParam('cell', v, 'glcell')} />
+      <Slider label="Scramble" value={params.scramble} min={0} max={100} step={1} unit="%" onChange={(v) => patchParam('scramble', v, 'glscram')} />
+      <div onClick={() => patchParam('invert', !params.invert)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 10 }}>
+        <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', cursor: 'pointer' }}>Invert tone</label>
+        <Toggle checked={params.invert} onChange={(v) => patchParam('invert', v)} />
+      </div>
+      <Field label="Seed" marginBottom={0}>
+        <NumberField value={params.seed} onChange={(v) => patchParam('seed', v, 'glseed')} />
+      </Field>
+      <Footnote>
+        {params.charset === 'hex'
+          ? 'each cell prints the high nibble of its own brightness — the image as an actual hexdump. '
+          : ''}
+        scramble prints the wrong character in a seeded fraction of cells; brightness still follows the image, so tone
+        survives corruption. Cell size is measured at full render, so the preview matches the export.
+      </Footnote>
+    </>
+  );
+}
 
 function ScanControls({ params, patchParam }: { params: ScanParams; patchParam: Patch }) {
   // Triad masks snap to a multiple of 3 so the phosphors stay balanced.

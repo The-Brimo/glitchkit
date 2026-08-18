@@ -36,6 +36,7 @@ import type {
   FieldParams,
   FeedbackParams,
   ScanParams,
+  GlyphParams,
 } from '../types';
 
 /**
@@ -79,6 +80,7 @@ const D = {
   field: STEP_DEFAULTS.field() as FieldParams,
   feedback: STEP_DEFAULTS.feedback() as FeedbackParams,
   scan: STEP_DEFAULTS.scan() as ScanParams,
+  glyphs: STEP_DEFAULTS.glyphs() as GlyphParams,
 };
 
 /** Seeds are filled client-side so repeated generations vary. */
@@ -598,6 +600,46 @@ export const TRANSFORMS: Record<string, Descriptor> = {
       },
     },
   },
+  glyphs: {
+    summary:
+      'ADDITIVE and input-reading: re-renders the image as a grid of terminal glyphs — a literal hexdump, a block-shading ramp, an ASCII density ramp, or binary — each cell’s character and brightness chosen from the image underneath. At normal/1.0 it is a legible ASCII-art remap, not a replacement. This is the terminal/datamosh/hacker vocabulary; reach for it when the ask mentions terminals, hexdumps, ASCII, code, the Matrix, or teletext.',
+    params: {
+      charset: {
+        type: 'enum',
+        of: ['hex', 'blocks', 'ascii', 'binary'],
+        default: D.glyphs.charset,
+        feel: 'hex prints each cell’s actual luma as a hex digit (a real hexdump of the picture); blocks is a solid shading ramp and the most image-faithful; ascii is the classic art ramp; binary is stark 0s and 1s',
+      },
+      cell: {
+        type: 'number',
+        min: 6,
+        max: 32,
+        default: D.glyphs.cell,
+        int: true,
+        feel: 'glyph size in pixels at final render. 8 keeps the image readable through the characters, 12 balances both, 24+ turns it into large type where the image is barely there',
+      },
+      ink: {
+        type: 'enum',
+        of: ['sample', 'green', 'amber', 'white'],
+        default: D.glyphs.ink,
+        feel: 'sample keeps each cell’s own colour so the image shows through strongest; green and amber are phosphor terminal looks; white is a plain printout',
+      },
+      scramble: {
+        type: 'number',
+        min: 0,
+        max: 100,
+        default: D.glyphs.scramble,
+        int: true,
+        feel: 'percentage of cells printed with the wrong character — corruption without losing tone, since ink brightness still follows the image. 0 is a clean render, 30 reads as a failing terminal, 100 is pure noise type',
+      },
+      invert: {
+        type: 'boolean',
+        default: D.glyphs.invert,
+        feel: 'flips the tone mapping; useful when a bright image turns into a wall of solid glyphs',
+      },
+      seed: seedSpec(D.glyphs.seed),
+    },
+  },
 };
 
 /* ── Chain guidance ──────────────────────────────────────────────── */
@@ -620,7 +662,8 @@ export const CHAIN_NOTES = [
   'feedback smears whatever it is given, so it reads very differently before and after a hard-edged step: after pixelsort it drags the streaks into comet tails, after sliceshuffle it multiplies the cuts into a shuffled tunnel. It is also the natural partner for field — generate a field, then feedback to spin it into structure.',
   'feedback does not degrade the image the way the byte-level steps do, so it is safe late in a chain, including after halftone.',
   'scan belongs LAST, or very near it. It is the screen the finished image is being displayed on, so anything after it is compositing on top of the glass — and putting a byte-level step after it is actively bad, since a fine regular mask is close to worst-case input for JPEG compression, the same reason halftone must come after databend rather than before.',
-  'scan and halftone both impose a regular grid and fight each other for the same visual role. Pick one, or give them clearly different pitches so the result reads as texture rather than moire.',
+  'scan, halftone and glyphs all impose a regular grid and fight each other for the same visual role. Pick one finisher, or give them clearly different pitches so the result reads as texture rather than moire.',
+  'glyphs belongs at or near the end for the same reason as scan: it is a re-rendering of the finished image, and a fine grid of type is terrible input for byte-level corruption. glyphs -> feedback is the one good exception — it smears the type into phosphor trails.',
   'feedback needs edges to smear. On a hard-edged frame (after halftone, sliceshuffle or a heavy pixelsort) it transforms the image; on a soft cloudy one it barely registers, because offset copies of a cloud average back into the same cloud. If a chain is all soft gradients, put something hard-edged before the feedback or skip it.',
 ] as const;
 

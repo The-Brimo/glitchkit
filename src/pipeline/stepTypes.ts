@@ -12,6 +12,7 @@ import type {
   FieldParams,
   FeedbackParams,
   ScanParams,
+  GlyphParams,
   BlendMode,
   StepType,
 } from '../types';
@@ -29,6 +30,7 @@ export const STEP_LABELS: Record<StepType, string> = {
   field: 'Field',
   feedback: 'Feedback',
   scan: 'Scan / CRT',
+  glyphs: 'Glyph Spill',
 };
 
 export const STEP_DEFAULTS = {
@@ -81,6 +83,14 @@ export const STEP_DEFAULTS = {
     roll: 0,
     rollPos: 50,
   }),
+  glyphs: (): GlyphParams => ({
+    charset: 'hex',
+    cell: 12,
+    ink: 'green',
+    scramble: 0,
+    seed: 7,
+    invert: false,
+  }),
 };
 
 /**
@@ -111,6 +121,7 @@ export const ADD_TRANSFORM_OPTIONS: { type: StepType; label: string }[] = [
   { type: 'field', label: 'Field (generate noise / reaction)' },
   { type: 'feedback', label: 'Feedback (echo trails)' },
   { type: 'scan', label: 'Scan / CRT (screen mask)' },
+  { type: 'glyphs', label: 'Glyph Spill (terminal glyphs)' },
   { type: 'pixelsort', label: 'Pixel Sort' },
   { type: 'databend', label: 'Databend' },
   { type: 'channelshift', label: 'Channel Shift' },

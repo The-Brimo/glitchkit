@@ -1,4 +1,4 @@
-import type { Document, FeedbackParams, FieldParams, ScanParams, Step } from '../types';
+import type { Document, FeedbackParams, FieldParams, GlyphParams, ScanParams, Step } from '../types';
 import { generateNoiseField } from './noise';
 import { generateReactionField } from './reaction';
 import { fieldToImageData } from './palette';
@@ -9,6 +9,7 @@ import { sliceShuffle } from './sliceShuffle';
 import { halftone } from './halftone';
 import { feedback } from './feedback';
 import { scanMask } from './scan';
+import { glyphSpill } from './glyphs';
 import { jpegLoop } from './jpegLoop';
 import { applyDatabend } from './databend';
 import { applyByteOps } from './byteOps';
@@ -163,6 +164,10 @@ async function runTransform(
     if (step.type === 'sliceshuffle') {
       const out = sliceShuffle(imageDataFromCanvas(input), step.params as any);
       return { canvas: canvasFromImageData(out) };
+    }
+    if (step.type === 'glyphs') {
+      // Canvas-domain: text rendering. Cell size is in final-render pixels.
+      return { canvas: glyphSpill(input, step.params as GlyphParams, renderScale) };
     }
     if (step.type === 'feedback') {
       // Operates on canvases, not ImageData — the accumulation is compositing.
