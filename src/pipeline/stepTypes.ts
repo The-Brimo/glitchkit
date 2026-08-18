@@ -13,6 +13,7 @@ import type {
   FeedbackParams,
   ScanParams,
   GlyphParams,
+  ContourParams,
   BlendMode,
   StepType,
 } from '../types';
@@ -31,6 +32,7 @@ export const STEP_LABELS: Record<StepType, string> = {
   feedback: 'Feedback',
   scan: 'Scan / CRT',
   glyphs: 'Glyph Spill',
+  contour: 'Contour Trace',
 };
 
 export const STEP_DEFAULTS = {
@@ -91,6 +93,14 @@ export const STEP_DEFAULTS = {
     seed: 7,
     invert: false,
   }),
+  contour: (): ContourParams => ({
+    mode: 'iso',
+    levels: 6,
+    coverage: 50,
+    weight: 1,
+    smooth: 2,
+    ink: 'graded',
+  }),
 };
 
 /**
@@ -122,6 +132,7 @@ export const ADD_TRANSFORM_OPTIONS: { type: StepType; label: string }[] = [
   { type: 'feedback', label: 'Feedback (echo trails)' },
   { type: 'scan', label: 'Scan / CRT (screen mask)' },
   { type: 'glyphs', label: 'Glyph Spill (terminal glyphs)' },
+  { type: 'contour', label: 'Contour Trace (iso lines / edges)' },
   { type: 'pixelsort', label: 'Pixel Sort' },
   { type: 'databend', label: 'Databend' },
   { type: 'channelshift', label: 'Channel Shift' },

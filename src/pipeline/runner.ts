@@ -10,6 +10,7 @@ import { halftone } from './halftone';
 import { feedback } from './feedback';
 import { scanMask } from './scan';
 import { glyphSpill } from './glyphs';
+import { contourTrace } from './contour';
 import { jpegLoop } from './jpegLoop';
 import { applyDatabend } from './databend';
 import { applyByteOps } from './byteOps';
@@ -163,6 +164,11 @@ async function runTransform(
     }
     if (step.type === 'sliceshuffle') {
       const out = sliceShuffle(imageDataFromCanvas(input), step.params as any);
+      return { canvas: canvasFromImageData(out) };
+    }
+    if (step.type === 'contour') {
+      // Pixel-domain analysis; weight and smooth are in final-render pixels.
+      const out = contourTrace(imageDataFromCanvas(input), step.params as any, renderScale);
       return { canvas: canvasFromImageData(out) };
     }
     if (step.type === 'glyphs') {

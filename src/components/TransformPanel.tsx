@@ -15,6 +15,7 @@ import type {
   FeedbackParams,
   ScanParams,
   GlyphParams,
+  ContourParams,
   BlendMode,
 } from '../types';
 import { Field, SelectField, Slider, NumberField, Toggle, SectionHeader, DividerLine, Footnote, DestructiveButton } from './controls';
@@ -58,6 +59,7 @@ export function TransformPanel({ step }: { step: Step }) {
       {step.type === 'feedback' && <FeedbackControls params={step.params as FeedbackParams} patchParam={patchParam} />}
       {step.type === 'scan' && <ScanControls params={step.params as ScanParams} patchParam={patchParam} />}
       {step.type === 'glyphs' && <GlyphControls params={step.params as GlyphParams} patchParam={patchParam} />}
+      {step.type === 'contour' && <ContourControls params={step.params as ContourParams} patchParam={patchParam} />}
 
       <DividerLine />
       <SectionHeader>Compositing</SectionHeader>
@@ -84,6 +86,48 @@ export function TransformPanel({ step }: { step: Step }) {
 }
 
 type Patch = (key: string, value: unknown, historyKey?: string) => void;
+
+function ContourControls({ params, patchParam }: { params: ContourParams; patchParam: Patch }) {
+  return (
+    <>
+      <Field label="Trace">
+        <SelectField
+          value={params.mode}
+          onChange={(v) => patchParam('mode', v)}
+          options={[
+            { value: 'iso', label: 'iso-luma bands' },
+            { value: 'edge', label: 'edges' },
+          ]}
+        />
+      </Field>
+      {params.mode === 'iso' ? (
+        <Slider label="Levels" value={params.levels} min={2} max={16} step={1} onChange={(v) => patchParam('levels', v, 'ctlevels')} />
+      ) : (
+        <Slider label="Coverage" value={params.coverage} min={0} max={100} step={1} unit="%" onChange={(v) => patchParam('coverage', v, 'ctcov')} />
+      )}
+      <Slider label="Line weight" value={params.weight} min={1} max={4} step={1} unit=" px" onChange={(v) => patchParam('weight', v, 'ctweight')} />
+      <Slider label="Smoothing" value={params.smooth} min={0} max={8} step={1} unit=" px" onChange={(v) => patchParam('smooth', v, 'ctsmooth')} />
+      <Field label="Ink" marginBottom={0}>
+        <SelectField
+          value={params.ink}
+          onChange={(v) => patchParam('ink', v)}
+          options={[
+            { value: 'graded', label: 'graded (by height / strength)' },
+            { value: 'white', label: 'white' },
+            { value: 'sample', label: 'image colour' },
+          ]}
+        />
+      </Field>
+      <Footnote>
+        {params.mode === 'edge'
+          ? 'coverage picks what fraction of the frame gets traced, strongest edges first — 0 still keeps the very strongest lines. '
+          : 'traces the boundaries between brightness bands, like elevation lines on a map. '}
+        deterministic — the same image always traces the same lines. Weight and smoothing are measured at full render, so the
+        preview matches the export.
+      </Footnote>
+    </>
+  );
+}
 
 function GlyphControls({ params, patchParam }: { params: GlyphParams; patchParam: Patch }) {
   return (

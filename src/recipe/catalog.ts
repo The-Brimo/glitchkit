@@ -37,6 +37,7 @@ import type {
   FeedbackParams,
   ScanParams,
   GlyphParams,
+  ContourParams,
 } from '../types';
 
 /**
@@ -81,6 +82,7 @@ const D = {
   feedback: STEP_DEFAULTS.feedback() as FeedbackParams,
   scan: STEP_DEFAULTS.scan() as ScanParams,
   glyphs: STEP_DEFAULTS.glyphs() as GlyphParams,
+  contour: STEP_DEFAULTS.contour() as ContourParams,
 };
 
 /** Seeds are filled client-side so repeated generations vary. */
@@ -640,6 +642,56 @@ export const TRANSFORMS: Record<string, Descriptor> = {
       seed: seedSpec(D.glyphs.seed),
     },
   },
+  contour: {
+    summary:
+      'ADDITIVE and input-reading: draws lines along the image’s structure onto a near-black ground — iso-luma bands (a topographic map of brightness) or Sobel edges. Fully deterministic, no seed. At normal/1.0 it is a pure line drawing of the image; with screen it lays glowing linework over the picture. The wireframe/blueprint/topo-map vocabulary.',
+    params: {
+      mode: {
+        type: 'enum',
+        of: ['iso', 'edge'],
+        default: D.contour.mode,
+        feel: 'iso traces the boundaries between brightness bands — flowing, nested, map-like rings; edge traces gradient outlines — sparser, follows subjects and hard boundaries',
+      },
+      levels: {
+        type: 'number',
+        min: 2,
+        max: 16,
+        default: D.contour.levels,
+        int: true,
+        feel: 'iso only: how many brightness bands, so levels-1 nested contour rings. 3 sparse and bold, 6 reads as a topographic map, 12+ dense like wood grain',
+      },
+      coverage: {
+        type: 'number',
+        min: 0,
+        max: 100,
+        default: D.contour.coverage,
+        int: true,
+        feel: 'edge only: what fraction of the frame gets traced, strongest edges first — the slider means the same thing on every image. 20 outlines just the subjects, 50 balanced linework, 90 traces almost every texture',
+      },
+      weight: {
+        type: 'number',
+        min: 1,
+        max: 4,
+        default: D.contour.weight,
+        int: true,
+        feel: 'line thickness in pixels at final render. 1 is fine pen work, 3-4 reads as marker/screen-print',
+      },
+      smooth: {
+        type: 'number',
+        min: 0,
+        max: 8,
+        default: D.contour.smooth,
+        int: true,
+        feel: 'blur applied before tracing, in pixels. 0 traces pixel noise into shattered speckle, 2 flowing lines, 6+ only the broadest shapes survive',
+      },
+      ink: {
+        type: 'enum',
+        of: ['graded', 'white', 'sample'],
+        default: D.contour.ink,
+        feel: 'graded brightens lines by their band height (topo-map depth cue) or edge strength; white is uniform blueprint linework; sample inks each line with the image’s own colour there',
+      },
+    },
+  },
 };
 
 /* ── Chain guidance ──────────────────────────────────────────────── */
@@ -663,6 +715,7 @@ export const CHAIN_NOTES = [
   'feedback does not degrade the image the way the byte-level steps do, so it is safe late in a chain, including after halftone.',
   'scan belongs LAST, or very near it. It is the screen the finished image is being displayed on, so anything after it is compositing on top of the glass — and putting a byte-level step after it is actively bad, since a fine regular mask is close to worst-case input for JPEG compression, the same reason halftone must come after databend rather than before.',
   'scan, halftone and glyphs all impose a regular grid and fight each other for the same visual role. Pick one finisher, or give them clearly different pitches so the result reads as texture rather than moire.',
+  'contour reads structure, so what precedes it decides everything: after a field step it contours the generated texture, after pixelsort it outlines the streaks. It pairs naturally with feedback (smears the linework into trails) and is an alternative finisher to the grid steps — lines instead of cells.',
   'glyphs belongs at or near the end for the same reason as scan: it is a re-rendering of the finished image, and a fine grid of type is terrible input for byte-level corruption. glyphs -> feedback is the one good exception — it smears the type into phosphor trails.',
   'feedback needs edges to smear. On a hard-edged frame (after halftone, sliceshuffle or a heavy pixelsort) it transforms the image; on a soft cloudy one it barely registers, because offset copies of a cloud average back into the same cloud. If a chain is all soft gradients, put something hard-edged before the feedback or skip it.',
 ] as const;

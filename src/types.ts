@@ -15,7 +15,8 @@ export type StepType =
   | 'field'
   | 'feedback'
   | 'scan'
-  | 'glyphs';
+  | 'glyphs'
+  | 'contour';
 
 export type BlendMode =
   | 'normal'
@@ -126,6 +127,19 @@ export interface ScanParams {
   rollPos: number; // 0..100 — vertical position of the bar
 }
 
+export type ContourMode = 'iso' | 'edge';
+export type ContourInk = 'graded' | 'white' | 'sample';
+
+/** Additive and input-reading: lines drawn along iso-luma bands or edges. */
+export interface ContourParams {
+  mode: ContourMode;
+  levels: number; // 2..16 — iso bands
+  coverage: number; // 0..100 — edge mode: fraction of frame traced, strongest first
+  weight: number; // 1..4 px line thickness at final render
+  smooth: number; // 0..8 px pre-analysis blur at final render
+  ink: ContourInk;
+}
+
 export type GlyphCharset = 'hex' | 'blocks' | 'ascii' | 'binary';
 export type GlyphInk = 'sample' | 'green' | 'amber' | 'white';
 
@@ -168,7 +182,8 @@ export type StepParams =
   | FieldParams
   | FeedbackParams
   | ScanParams
-  | GlyphParams;
+  | GlyphParams
+  | ContourParams;
 
 export interface Step {
   id: string;
