@@ -2,8 +2,10 @@
 
 A glitch-art studio in the browser. Start from a procedurally generated base image
 (noise or Gray–Scott reaction-diffusion) or an imported photo, then stack an ordered
-chain of destructive transforms over it — pixel sorting, databending, byte-domain
-"audio" DSP, and more. Every step can be bypassed, reordered, blended, and snapshotted.
+chain of transforms over it — destructive ones (pixel sorting, databending,
+byte-domain "audio" DSP) and additive ones that build imagery instead of damaging
+it (generated fields, feedback trails, CRT masks, terminal glyphs, contour
+linework). Every step can be bypassed, reordered, blended, and snapshotted.
 
 Built from the Claude Design handoff (`design_handoff_glitchkit`); all processing is
 real — no simulated previews.
@@ -55,9 +57,27 @@ any PNG or JPEG.
 | Slice Shuffle | pixels | Cuts into slices along rows/columns and permutes a seeded fraction of them |
 | Halftone / Dither | pixels | Ordered (Bayer) dither, Floyd–Steinberg error diffusion, or a color dot screen |
 
+**Additive transforms** — steps that add imagery rather than damage it. The
+per-step blend/opacity is what layers them in; nothing in the pipeline requires
+a step to read what it was handed:
+
+| Transform | Reads the image? | What it does |
+| --- | --- | --- |
+| Field | no | Runs the noise / reaction generators **mid-chain**, with their own palette, gamma and seed — fresh texture layered over (or under the effects of) everything else |
+| Feedback | yes | The frame composited over itself N times under a compounding zoom / rotate / drift — droste tunnels, spirals, motion trails |
+| Scan / CRT | no | Synthesised screen mask: scanlines, Trinitron-style aperture grille, or shadow-mask triads, with an optional hum bar. Created with multiply, because a mask is white where light passes |
+| Glyph Spill | yes | Re-renders the image as terminal glyphs — a literal hexdump (each cell prints the high nibble of its own luma), block shading, an ASCII ramp, or binary — with seeded per-cell corruption that keeps tone intact |
+| Contour Trace | yes | Lines traced along iso-luma bands (a topographic map of brightness) or Sobel edges. The one transform with no seed: fully deterministic |
+
 Each step has a blend mode (normal / screen / multiply / overlay / difference /
 lighten / darken) and opacity, compositing its output back over its input. Order
-matters and is fully drag-reorderable in the bottom strip.
+matters and is fully drag-reorderable in the bottom strip. Additive steps are
+born with the compositing that makes them read as a layer (Field at overlay/70%,
+Scan at multiply) — including when a generated recipe omits it.
+
+Parameters that describe a pattern size in pixels (scan pitch, halftone cell,
+glyph cell, contour line weight and smoothing) are measured at **full-render
+size** and scale-corrected in the live preview, so what you see is what exports.
 
 **Workflow**
 
@@ -125,6 +145,12 @@ src/
     palette.ts            Brightness-field → color mapping
     pixelSort.ts, channelShift.ts, displace.ts,
     sliceShuffle.ts, halftone.ts              Pixel-domain transforms
+    feedback.ts           Echo-trail accumulation (canvas compositing)
+    scan.ts               CRT screen masks (the field step has no module — it
+                          reuses noise/reaction + palette from inside runner.ts)
+    glyphs.ts             Terminal-glyph re-rendering; ramps ordered and inks
+                          compensated by coverage measured on the actual font
+    contour.ts            Iso-luma / edge line tracing
     jpegBytes.ts          JPEG scan-data helpers (header preservation, 0xFF sanitising)
     databend.ts, byteOps.ts                   JPEG byte-domain transforms
     audioLab.ts           PCM-interpretation DSP effects
@@ -181,3 +207,7 @@ stays the single typed source of truth.
   Render for the full-quality simulation.
 - Byte-domain transforms depend on how the JPEG encoder distributed bytes, so their
   slider response is graduated but not pixel-precise — same as real databending.
+- The preview scale-correction has two small, deliberate residuals, documented in
+  the modules: halftone dots when the scaled cell lands near a half pixel, and
+  contour edge mode at line weights above 1. Both were measured and traded
+  against changing how already-exported recipes render.
