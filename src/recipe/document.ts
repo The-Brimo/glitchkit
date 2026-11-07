@@ -21,6 +21,7 @@ import type {
   Step,
   StepParams,
   StepType,
+  TrafficMapping,
 } from '../types';
 import type { ParamBag, Recipe, RecipeStep } from './schema';
 import { RECIPE_VERSION } from './schema';
@@ -53,22 +54,30 @@ export function recipeToDocument(recipe: Recipe, base: Document): Document {
   const kind = recipe.source.kind;
   const p = recipe.source.params;
   const isImage = kind === 'image';
+  const isTraffic = kind === 'traffic';
+  // Image and traffic sources carry data a recipe cannot: the photo bytes and
+  // the capture. Both keep the base document's copy and everything the mapping
+  // does not use.
+  const keepBase = isImage || isTraffic;
   const generator: Generator = kind === 'reaction' ? 'reaction' : 'noise';
 
   return {
     ...base,
-    sourceMode: isImage ? 'imported' : 'generate',
+    sourceMode: isImage ? 'imported' : isTraffic ? 'traffic' : 'generate',
     // The image itself is never in a recipe — keep whatever is loaded.
     imageDataURL: base.imageDataURL,
     imageName: base.imageName,
+    trafficDigest: base.trafficDigest,
+    trafficLabel: base.trafficLabel,
+    traffic: isTraffic ? { mapping: str<TrafficMapping>(p, 'mapping', base.traffic.mapping) } : base.traffic,
 
-    generator: isImage ? base.generator : generator,
-    seed: isImage ? base.seed : num(p, 'seed', base.seed),
+    generator: keepBase ? base.generator : generator,
+    seed: keepBase ? base.seed : num(p, 'seed', base.seed),
     width: isImage ? base.width : num(p, 'width', base.width),
     height: isImage ? base.height : num(p, 'height', base.height),
-    palette: isImage ? base.palette : str<PaletteName>(p, 'palette', base.palette),
-    gamma: isImage ? base.gamma : num(p, 'gamma', base.gamma),
-    invert: isImage ? base.invert : bool(p, 'invert', base.invert),
+    palette: keepBase ? base.palette : str<PaletteName>(p, 'palette', base.palette),
+    gamma: keepBase ? base.gamma : num(p, 'gamma', base.gamma),
+    invert: keepBase ? base.invert : bool(p, 'invert', base.invert),
 
     noise:
       kind === 'noise'
@@ -120,6 +129,9 @@ function sourceFromDocument(doc: Document): Recipe['source'] {
   if (doc.sourceMode === 'imported') {
     return { kind: 'image', params: {} };
   }
+  if (doc.sourceMode === 'traffic') {
+    return { kind: 'traffic', params: { mapping: doc.traffic.mapping, width: doc.width, height: doc.height } };
+  }
 
   const common: ParamBag = {
     palette: doc.palette,
@@ -156,7 +168,9 @@ export function describeRecipe(recipe: Recipe): string {
   const src =
     recipe.source.kind === 'image'
       ? 'imported image'
-      : `${recipe.source.kind} · ${recipe.source.params.palette ?? '—'}`;
+      : recipe.source.kind === 'traffic'
+        ? `traffic · ${recipe.source.params.mapping ?? 'waterfall'}`
+        : `${recipe.source.kind} · ${recipe.source.params.palette ?? '—'}`;
   const names = recipe.steps.map((s) => s.t).join(' → ');
   return names ? `${src} · ${names}` : `${src} · no transforms`;
 }

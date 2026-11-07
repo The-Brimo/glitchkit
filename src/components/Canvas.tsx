@@ -106,7 +106,7 @@ export function Canvas() {
               padding: 20,
             }}
           >
-            no source image — choose one in the inspector
+            no source data — open an image or capture traffic in the inspector
             <br />
             (or drop an image here)
           </div>

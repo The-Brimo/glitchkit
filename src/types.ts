@@ -1,4 +1,25 @@
 export type Generator = 'noise' | 'reaction';
+export type TrafficMapping = 'waterfall' | 'raster';
+
+/**
+ * Compact network-capture digest, produced by tvwatch's traffic_digest.py and
+ * served by its localhost bridge. Like an imported photo this is data a recipe
+ * can never carry — recipes serialise the mapping, never the traffic.
+ * packets rows are [tMs, remoteIdx, dir(1=out), wireBytes]; payloads rows are
+ * [packetIdx, hexBytes].
+ */
+export interface TrafficDigest {
+  v: number;
+  kind: 'traffic-digest';
+  device: string;
+  capturedAt: number;
+  durationMs: number;
+  packetCount: number;
+  scrambled: boolean;
+  remotes: string[];
+  packets: [number, number, number, number][];
+  payloads: [number, string][];
+}
 export type PaletteName = 'ember' | 'ice' | 'magma' | 'acid' | 'mono';
 export type ReactionPreset = 'coral' | 'maze' | 'spots' | 'mitosis' | 'fingerprint' | 'flower';
 
@@ -204,9 +225,13 @@ export interface Snapshot {
 }
 
 export interface Document {
-  sourceMode: 'generate' | 'imported';
+  sourceMode: 'generate' | 'imported' | 'traffic';
   imageDataURL: string | null;
   imageName: string | null;
+
+  trafficDigest: TrafficDigest | null;
+  trafficLabel: string | null;
+  traffic: { mapping: TrafficMapping };
 
   generator: Generator;
   seed: number;

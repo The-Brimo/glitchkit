@@ -11,6 +11,7 @@ import { feedback } from './feedback';
 import { scanMask } from './scan';
 import { glyphSpill } from './glyphs';
 import { contourTrace } from './contour';
+import { renderTraffic } from './traffic';
 import { jpegLoop } from './jpegLoop';
 import { applyDatabend } from './databend';
 import { applyByteOps } from './byteOps';
@@ -61,6 +62,14 @@ export interface RunResult {
 }
 
 export async function generateSourceCanvas(doc: Document, opts: RunOptions): Promise<HTMLCanvasElement | null> {
+  if (doc.sourceMode === 'traffic') {
+    if (!doc.trafficDigest) return null;
+    const target =
+      opts.quality === 'preview'
+        ? fitDims(doc.width, doc.height, opts.maxPreviewDim ?? 900)
+        : { width: doc.width, height: doc.height };
+    return canvasFromImageData(renderTraffic(doc.trafficDigest, doc.traffic.mapping, target.width, target.height));
+  }
   if (doc.sourceMode === 'imported') {
     if (!doc.imageDataURL) return null;
     const img = await loadImage(doc.imageDataURL);
@@ -246,7 +255,9 @@ async function runTransform(
 }
 
 export async function runPipeline(doc: Document, opts: RunOptions): Promise<RunResult> {
-  const needsImage = doc.sourceMode === 'imported' && !doc.imageDataURL;
+  const needsImage =
+    (doc.sourceMode === 'imported' && !doc.imageDataURL) ||
+    (doc.sourceMode === 'traffic' && !doc.trafficDigest);
   const stepErrors: Record<string, string> = {};
 
   let canvas = needsImage ? null : await generateSourceCanvas(doc, opts);
@@ -292,7 +303,9 @@ export async function runPipeline(doc: Document, opts: RunOptions): Promise<RunR
   const recipeLabel =
     doc.sourceMode === 'imported'
       ? `${doc.imageName || 'no image'} · imported · ${enabledCount} transform(s)`
-      : `${doc.generator} · seed ${doc.seed} · ${doc.palette} · ${doc.width}x${doc.height} · ${enabledCount} transform(s)`;
+      : doc.sourceMode === 'traffic'
+        ? `${doc.trafficLabel || 'no capture'} · ${doc.traffic.mapping} · ${doc.width}x${doc.height} · ${enabledCount} transform(s)`
+        : `${doc.generator} · seed ${doc.seed} · ${doc.palette} · ${doc.width}x${doc.height} · ${enabledCount} transform(s)`;
 
   return { canvas, recipeLabel, stepErrors, hasImage: doc.sourceMode === 'imported' && !!doc.imageDataURL, needsImage };
 }

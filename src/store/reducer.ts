@@ -7,6 +7,7 @@ export type DocAction =
   | { type: 'PATCH'; patch: Partial<Document>; historyKey?: string }
   | { type: 'PATCH_NOISE'; patch: Partial<Document['noise']>; historyKey?: string }
   | { type: 'PATCH_REACTION'; patch: Partial<Document['reaction']>; historyKey?: string }
+  | { type: 'PATCH_TRAFFIC'; patch: Partial<Document['traffic']>; historyKey?: string }
   | { type: 'PATCH_STEP'; id: string; patch: Partial<Step>; historyKey?: string }
   | { type: 'PATCH_STEP_PARAM'; id: string; key: string; value: unknown; historyKey?: string }
   | { type: 'MOVE_STEP'; fromId: string; toId: string }
@@ -32,6 +33,8 @@ export function docReducer(doc: Document, action: DocAction): Document {
       return samePatch(doc.noise, action.patch) ? doc : { ...doc, noise: { ...doc.noise, ...action.patch } };
     case 'PATCH_REACTION':
       return samePatch(doc.reaction, action.patch) ? doc : { ...doc, reaction: { ...doc.reaction, ...action.patch } };
+    case 'PATCH_TRAFFIC':
+      return samePatch(doc.traffic, action.patch) ? doc : { ...doc, traffic: { ...doc.traffic, ...action.patch } };
     case 'PATCH_STEP': {
       const step = doc.chain.find((s) => s.id === action.id);
       if (!step || samePatch(step, action.patch)) return doc;

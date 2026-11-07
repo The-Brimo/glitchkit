@@ -29,6 +29,18 @@ implementation deliberately diverges).
   terminal characters / traced linework (additive but input-reading — marks
   are new, placement and tone come from the picture). `contour` is the one
   transform with no seed: fully deterministic.
+- **Third source kind: `traffic`** — a network-capture digest rendered as the
+  base image (`pipeline/traffic.ts`: waterfall = time x remote host, raster =
+  payload bytes). The digest comes from tvwatch's localhost bridge
+  (`~/claude/tvwatch/traffic_server.py`, port 8954, launch-config name
+  "traffic-server"); tvwatch's `render_digest.py` is the reference
+  implementation of the mappings — keep them in agreement. Like an imported
+  photo, the digest is data a recipe can never carry: recipes serialise the
+  mapping (+ canvas size), `recipeToDocument` keeps the base document's digest,
+  and a traffic recipe loaded with no digest present flags `needsImage`. The
+  capture IS the entropy — rendering a digest is fully deterministic, no seed.
+  Payload bytes in a digest are real traffic; they stay in memory and are never
+  written into recipes or export metadata.
 - `src/recipe/` — versioned wire format. **The only door from untrusted input is
   `coerceRecipe` (validate.ts) → `recipeToDocument` → APPLY_RECIPE** (one undo
   entry). Producers: exported-image metadata (PNG tEXt / JPEG COM via parse.ts),

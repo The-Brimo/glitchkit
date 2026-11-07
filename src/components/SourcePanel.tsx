@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAppState } from '../store/AppState';
 import { colors, fontMono, palettesUI } from '../theme';
 import { Field, Segmented, SelectField, Slider, TextField, ToggleRow, SectionHeader, DividerLine, Footnote, NumberField } from './controls';
+import { TrafficPanel } from './TrafficPanel';
 import type { PaletteName } from '../types';
 
 function readFileAsDataURL(file: File): Promise<string> {
@@ -51,11 +52,17 @@ export function SourcePanel() {
       <SectionHeader>Source</SectionHeader>
 
       <Segmented
-        value={doc.sourceMode === 'imported' ? 'import' : 'generate'}
-        onChange={(v) => dispatch({ type: 'PATCH', patch: { sourceMode: v === 'import' ? 'imported' : 'generate' } })}
+        value={doc.sourceMode === 'imported' ? 'import' : doc.sourceMode}
+        onChange={(v) =>
+          dispatch({
+            type: 'PATCH',
+            patch: { sourceMode: v === 'import' ? 'imported' : v === 'traffic' ? 'traffic' : 'generate' },
+          })
+        }
         options={[
           { value: 'generate', label: 'Generate' },
-          { value: 'import', label: 'Open image' },
+          { value: 'import', label: 'Image' },
+          { value: 'traffic', label: 'Traffic' },
         ]}
       />
 
@@ -97,6 +104,19 @@ export function SourcePanel() {
             PNG or JPEG. Pixel sort runs directly; databend converts to JPEG first.
           </div>
         </div>
+      )}
+
+      {doc.sourceMode === 'traffic' && (
+        <>
+          <Field label="Size">
+            <SizeField
+              width={doc.width}
+              height={doc.height}
+              onCommit={(w, h) => dispatch({ type: 'PATCH', patch: { width: w, height: h } })}
+            />
+          </Field>
+          <TrafficPanel />
+        </>
       )}
 
       {doc.sourceMode === 'generate' && (

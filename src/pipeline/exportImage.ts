@@ -97,6 +97,9 @@ export function exportFilename(doc: Document, ext: string): string {
         .slice(0, 40) || 'image';
     return `glitchkit-${stem}.${ext}`;
   }
+  if (doc.sourceMode === 'traffic') {
+    return `glitchkit-traffic-${doc.traffic.mapping}.${ext}`;
+  }
   return `glitchkit-${doc.generator}-s${doc.seed}-${doc.palette}.${ext}`;
 }
 

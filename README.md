@@ -43,6 +43,17 @@ Both are seed-reproducible: same settings always give the same image. Five palet
 (`ember`, `ice`, `magma`, `acid`, `mono`) plus gamma and invert. Or open / drag-drop
 any PNG or JPEG.
 
+**Or use your network as the source.** The Traffic tab talks to a small localhost
+bridge ([tvwatch](https://github.com/The-Brimo/tvwatch)'s `traffic_server.py`),
+lists every device on your router, captures one device's traffic for N seconds,
+and renders the capture as the base image — a **waterfall** (time × remote host:
+telemetry beacons are metronome ticks, streaming is chunk-fetch dashes) or a
+**byte raster** (raw payload bytes, one packet per row: encrypted traffic is
+noise, plaintext protocols are legible structure). A smart TV idling, a phone
+backgrounding, and a video stream produce completely different raw material.
+The capture never leaves your machine and is never written into recipes or
+export metadata — the picture is the only thing that leaves.
+
 **Transforms**
 
 | Transform | Domain | What it does |

@@ -12,6 +12,10 @@ export function createDefaultDocument(): Document {
     imageDataURL: null,
     imageName: null,
 
+    trafficDigest: null,
+    trafficLabel: null,
+    traffic: { mapping: 'waterfall' },
+
     generator: 'noise',
     seed: 7,
     width: 1600,

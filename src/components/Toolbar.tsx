@@ -47,7 +47,11 @@ export function Toolbar({ onSearch }: { onSearch: (q: string) => void }) {
     }
   };
 
-  const canExport = !exporting && status !== 'rendering' && !(doc.sourceMode === 'imported' && !doc.imageDataURL);
+  const canExport =
+    !exporting &&
+    status !== 'rendering' &&
+    !(doc.sourceMode === 'imported' && !doc.imageDataURL) &&
+    !(doc.sourceMode === 'traffic' && !doc.trafficDigest);
 
   const onExport = async () => {
     if (!canExport) return;

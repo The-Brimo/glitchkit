@@ -191,6 +191,20 @@ export const SOURCES: Record<string, Descriptor> = {
       'An imported photo. Cannot be generated — only valid when the user already has a file open. A recipe never carries the image itself.',
     params: {},
   },
+  traffic: {
+    summary:
+      'A captured network-traffic digest rendered as an image. Cannot be generated — only valid when the user has loaded a capture from the local traffic bridge. A recipe carries the mapping, never the traffic itself.',
+    params: {
+      mapping: {
+        type: 'enum',
+        of: ['waterfall', 'raster'],
+        default: 'waterfall',
+        feel: 'waterfall is time by remote host — telemetry beacons read as metronome ticks, streaming as chunk dashes; raster is raw payload bytes, one packet per row — encrypted traffic is noise, plaintext protocols are legible structure',
+      },
+      width: { type: 'number', min: 16, max: 4096, default: 1600, int: true, promptOmit: true },
+      height: { type: 'number', min: 16, max: 4096, default: 900, int: true, promptOmit: true },
+    },
+  },
 };
 
 /* ── Transforms ──────────────────────────────────────────────────── */
