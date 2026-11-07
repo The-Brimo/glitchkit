@@ -41,7 +41,12 @@ implementation deliberately diverges).
   `traffic.ts` is the canonical implementation; tvwatch's `render_digest.py`
   mirrors only waterfall and raster. The digest comes from tvwatch's localhost
   bridge (`~/claude/tvwatch/traffic_server.py`, port 8954, launch-config name
-  "traffic-server"). Like an imported
+  "traffic-server"; optionally installed as a socket-activated LaunchAgent via
+  --install-agent, in which case connecting IS what starts it). The Traffic
+  panel is **connect-gated**: it makes zero network requests until the user
+  presses "Connect to bridge" — do not reintroduce an auto-probe on mount,
+  since with the agent installed any probe spawns the bridge and SSHes the
+  router. Mapping and flowfield colour controls work without a connection. Like an imported
   photo, the digest is data a recipe can never carry: recipes serialise the
   mapping (+ canvas size), `recipeToDocument` keeps the base document's digest,
   and a traffic recipe loaded with no digest present flags `needsImage`. The

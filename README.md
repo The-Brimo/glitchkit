@@ -56,7 +56,10 @@ as dark runs, packets as ticks), or a **hilbert walk** (payload bytes on a
 space-filling curve, so protocol structure becomes blobs). A smart TV idling, a phone
 backgrounding, and a video stream produce completely different raw material.
 The capture never leaves your machine and is never written into recipes or
-export metadata — the picture is the only thing that leaves.
+export metadata — the picture is the only thing that leaves. The tab is off by
+default: nothing is probed until you press **Connect to bridge**, and with the
+bridge installed as tvwatch's socket-activated launch agent, that button is
+also what starts it (and it exits again after 15 idle minutes).
 
 **Transforms**
 

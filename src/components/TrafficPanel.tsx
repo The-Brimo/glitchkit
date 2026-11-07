@@ -3,7 +3,7 @@ import type { PaletteName, TrafficMapping } from '../types';
 import { useAppState } from '../store/AppState';
 import { isTrafficDigest } from '../pipeline/traffic';
 import { colors, fontMono, palettesUI } from '../theme';
-import { Field, SelectField, Slider, TextField, Footnote, PrimaryButton, SecondaryButton, ToggleRow } from './controls';
+import { Field, SelectField, Slider, TextField, Footnote, PrimaryButton, SecondaryButton, ToggleRow, DividerLine } from './controls';
 
 const LS_BASE_URL = 'glitchkit.traffic.baseUrl';
 const LS_MAC = 'glitchkit.traffic.mac';
@@ -20,6 +20,7 @@ interface Device {
 }
 
 type Status =
+  | { kind: 'idle' }
   | { kind: 'checking' }
   | { kind: 'ready'; demo: boolean }
   | { kind: 'unavailable'; message: string }
@@ -39,7 +40,11 @@ export function TrafficPanel() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [mac, setMac] = useState(() => localStorage.getItem(LS_MAC) || '');
   const [seconds, setSeconds] = useState(30);
-  const [status, setStatus] = useState<Status>({ kind: 'checking' });
+  // Off by default: no probe, no router contact, no bridge spawn until the
+  // user asks. With the launchd agent installed, the first probe is also what
+  // STARTS the bridge (socket activation), so connecting must be deliberate.
+  const [connectRequested, setConnectRequested] = useState(0);
+  const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const captureRef = useRef<AbortController | null>(null);
 
   // Ticks only while a capture is running, so the button can count down.
@@ -52,6 +57,7 @@ export function TrafficPanel() {
 
   const initialUrl = useRef(baseUrl);
   useEffect(() => {
+    if (connectRequested === 0) return;
     let cancelled = false;
     const controller = new AbortController();
     const delay = baseUrl === initialUrl.current ? 0 : URL_EDIT_DEBOUNCE_MS;
@@ -88,7 +94,9 @@ export function TrafficPanel() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [baseUrl]);
+  }, [baseUrl, connectRequested]);
+
+  const connect = () => setConnectRequested((n) => n + 1);
 
   useEffect(() => {
     if (mac) localStorage.setItem(LS_MAC, mac);
@@ -127,7 +135,83 @@ export function TrafficPanel() {
 
   return (
     <>
-      {status.kind === 'unavailable' ? (
+      {doc.trafficDigest && (
+        <div style={{ fontSize: 11, color: '#4ade80', lineHeight: 1.5, marginBottom: 10 }}>
+          {doc.trafficLabel} — {doc.trafficDigest.packetCount} packets, {doc.trafficDigest.remotes.length} remotes,{' '}
+          {(doc.trafficDigest.durationMs / 1000).toFixed(0)}s
+        </div>
+      )}
+
+      <Field label="Mapping">
+        <SelectField
+          value={doc.traffic.mapping}
+          onChange={(v) => dispatch({ type: 'PATCH_TRAFFIC', patch: { mapping: v as TrafficMapping } })}
+          options={[
+            { value: 'waterfall', label: 'waterfall (time × host)' },
+            { value: 'raster', label: 'byte raster (payloads)' },
+            { value: 'flowfield', label: 'flow field (hosts as clouds)' },
+            { value: 'timing', label: 'timing (rhythm ribbon)' },
+            { value: 'hilbert', label: 'hilbert (bytes on a curve)' },
+          ]}
+        />
+      </Field>
+
+      {doc.traffic.mapping === 'flowfield' && (
+        <>
+          <Field label="Palette">
+            <div style={{ display: 'flex', gap: 8 }}>
+              {(Object.keys(palettesUI) as PaletteName[]).map((name) => {
+                const pal = palettesUI[name];
+                const selected = doc.palette === name;
+                return (
+                  <div
+                    key={name}
+                    title={name}
+                    onClick={() => dispatch({ type: 'PATCH', patch: { palette: name } })}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 10,
+                      background: `linear-gradient(135deg, ${pal.from}, ${pal.to})`,
+                      cursor: 'pointer',
+                      boxShadow: selected
+                        ? `0 0 0 2px ${colors.windowBg}, 0 0 0 4px ${colors.accent}`
+                        : '0 0 0 1px rgba(255,255,255,0.15)',
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </Field>
+          <Slider
+            label="Gamma"
+            value={doc.gamma}
+            min={0.5}
+            max={2.5}
+            step={0.1}
+            onChange={(v) => dispatch({ type: 'PATCH', patch: { gamma: v }, historyKey: 'gamma' })}
+          />
+          <ToggleRow
+            label="Invert"
+            checked={doc.invert}
+            onChange={(v) => dispatch({ type: 'PATCH', patch: { invert: v } })}
+            onColor={colors.accent}
+          />
+        </>
+      )}
+
+      <DividerLine margin="4px 0 14px" />
+
+      {status.kind === 'idle' ? (
+        <>
+          <PrimaryButton onClick={connect}>Connect to bridge</PrimaryButton>
+          <Footnote>
+            off by default — nothing is probed and no capture runs until you connect. With the bridge's launch
+            agent installed, connecting starts it on demand and it exits again when idle; otherwise start it
+            yourself first: <span style={{ fontFamily: fontMono }}>python3 tvwatch/traffic_server.py</span>
+          </Footnote>
+        </>
+      ) : status.kind === 'unavailable' ? (
         <>
           <div
             style={{
@@ -144,6 +228,12 @@ export function TrafficPanel() {
             <div style={{ fontFamily: fontMono, fontSize: 10, marginTop: 8, color: colors.textTertiary }}>
               python3 tvwatch/traffic_server.py
             </div>
+            <div style={{ fontSize: 10, marginTop: 6, color: colors.textTertiary }}>
+              or install the on-demand agent once: traffic_server.py --install-agent
+            </div>
+          </div>
+          <div style={{ marginTop: 10, display: 'flex' }}>
+            <SecondaryButton onClick={connect}>Retry</SecondaryButton>
           </div>
           <Footnote>The bridge runs on this machine and reads your own router — nothing leaves your network.</Footnote>
         </>
@@ -178,75 +268,12 @@ export function TrafficPanel() {
             )}
           </div>
 
-          {doc.trafficDigest && (
-            <div style={{ fontSize: 11, color: '#4ade80', lineHeight: 1.5, marginBottom: 10 }}>
-              {doc.trafficLabel} — {doc.trafficDigest.packetCount} packets, {doc.trafficDigest.remotes.length}{' '}
-              remotes, {(doc.trafficDigest.durationMs / 1000).toFixed(0)}s
-            </div>
-          )}
           {status.kind === 'error' && (
             <div style={{ fontSize: 11, color: colors.destructive, lineHeight: 1.5, marginBottom: 10 }}>
               {status.message}
             </div>
           )}
 
-          <Field label="Mapping">
-            <SelectField
-              value={doc.traffic.mapping}
-              onChange={(v) => dispatch({ type: 'PATCH_TRAFFIC', patch: { mapping: v as TrafficMapping } })}
-              options={[
-                { value: 'waterfall', label: 'waterfall (time × host)' },
-                { value: 'raster', label: 'byte raster (payloads)' },
-                { value: 'flowfield', label: 'flow field (hosts as clouds)' },
-                { value: 'timing', label: 'timing (rhythm ribbon)' },
-                { value: 'hilbert', label: 'hilbert (bytes on a curve)' },
-              ]}
-            />
-          </Field>
-
-          {doc.traffic.mapping === 'flowfield' && (
-            <>
-              <Field label="Palette">
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {(Object.keys(palettesUI) as PaletteName[]).map((name) => {
-                    const pal = palettesUI[name];
-                    const selected = doc.palette === name;
-                    return (
-                      <div
-                        key={name}
-                        title={name}
-                        onClick={() => dispatch({ type: 'PATCH', patch: { palette: name } })}
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 10,
-                          background: `linear-gradient(135deg, ${pal.from}, ${pal.to})`,
-                          cursor: 'pointer',
-                          boxShadow: selected
-                            ? `0 0 0 2px ${colors.windowBg}, 0 0 0 4px ${colors.accent}`
-                            : '0 0 0 1px rgba(255,255,255,0.15)',
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              </Field>
-              <Slider
-                label="Gamma"
-                value={doc.gamma}
-                min={0.5}
-                max={2.5}
-                step={0.1}
-                onChange={(v) => dispatch({ type: 'PATCH', patch: { gamma: v }, historyKey: 'gamma' })}
-              />
-              <ToggleRow
-                label="Invert"
-                checked={doc.invert}
-                onChange={(v) => dispatch({ type: 'PATCH', patch: { invert: v } })}
-                onColor={colors.accent}
-              />
-            </>
-          )}
           <Footnote>
             captures run on your router, stay on this machine, and are never written into recipes or exports —
             the picture is the only thing that leaves. Encrypted traffic renders as noise; the legible rows are
