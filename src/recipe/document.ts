@@ -75,9 +75,11 @@ export function recipeToDocument(recipe: Recipe, base: Document): Document {
     seed: keepBase ? base.seed : num(p, 'seed', base.seed),
     width: isImage ? base.width : num(p, 'width', base.width),
     height: isImage ? base.height : num(p, 'height', base.height),
-    palette: keepBase ? base.palette : str<PaletteName>(p, 'palette', base.palette),
-    gamma: keepBase ? base.gamma : num(p, 'gamma', base.gamma),
-    invert: keepBase ? base.invert : bool(p, 'invert', base.invert),
+    // traffic's flowfield mapping colours through the palette pipeline, so
+    // these three travel in traffic recipes too; only image keeps base.
+    palette: isImage ? base.palette : str<PaletteName>(p, 'palette', base.palette),
+    gamma: isImage ? base.gamma : num(p, 'gamma', base.gamma),
+    invert: isImage ? base.invert : bool(p, 'invert', base.invert),
 
     noise:
       kind === 'noise'
@@ -130,7 +132,17 @@ function sourceFromDocument(doc: Document): Recipe['source'] {
     return { kind: 'image', params: {} };
   }
   if (doc.sourceMode === 'traffic') {
-    return { kind: 'traffic', params: { mapping: doc.traffic.mapping, width: doc.width, height: doc.height } };
+    return {
+      kind: 'traffic',
+      params: {
+        mapping: doc.traffic.mapping,
+        palette: doc.palette,
+        gamma: doc.gamma,
+        invert: doc.invert,
+        width: doc.width,
+        height: doc.height,
+      },
+    };
   }
 
   const common: ParamBag = {

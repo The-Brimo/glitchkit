@@ -30,11 +30,17 @@ implementation deliberately diverges).
   are new, placement and tone come from the picture). `contour` is the one
   transform with no seed: fully deterministic.
 - **Third source kind: `traffic`** — a network-capture digest rendered as the
-  base image (`pipeline/traffic.ts`: waterfall = time x remote host, raster =
-  payload bytes). The digest comes from tvwatch's localhost bridge
-  (`~/claude/tvwatch/traffic_server.py`, port 8954, launch-config name
-  "traffic-server"); tvwatch's `render_digest.py` is the reference
-  implementation of the mappings — keep them in agreement. Like an imported
+  base image. Five mappings in `pipeline/traffic.ts`: waterfall (time x remote
+  host), raster (payload bytes), flowfield (hosts hashed to stable positions,
+  traffic bloomed into a brightness field — the ONE mapping that renders
+  through fieldToImageData, so palette/gamma/invert are live for it and ride in
+  traffic recipes), timing (the capture as a ribbon: dark runs for silence, lit
+  runs for packets, log on both), and hilbert (payload bytes on a Hilbert curve
+  over a power-of-two square stretched to the canvas — the reaction-sim trade).
+  `traffic.ts` is the canonical implementation; tvwatch's `render_digest.py`
+  mirrors only waterfall and raster. The digest comes from tvwatch's localhost
+  bridge (`~/claude/tvwatch/traffic_server.py`, port 8954, launch-config name
+  "traffic-server"). Like an imported
   photo, the digest is data a recipe can never carry: recipes serialise the
   mapping (+ canvas size), `recipeToDocument` keeps the base document's digest,
   and a traffic recipe loaded with no digest present flags `needsImage`. The

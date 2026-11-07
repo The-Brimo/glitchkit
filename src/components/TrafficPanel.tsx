@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import type { TrafficMapping } from '../types';
+import type { PaletteName, TrafficMapping } from '../types';
 import { useAppState } from '../store/AppState';
 import { isTrafficDigest } from '../pipeline/traffic';
-import { colors, fontMono } from '../theme';
-import { Field, SelectField, Slider, TextField, Footnote, PrimaryButton, SecondaryButton } from './controls';
+import { colors, fontMono, palettesUI } from '../theme';
+import { Field, SelectField, Slider, TextField, Footnote, PrimaryButton, SecondaryButton, ToggleRow } from './controls';
 
 const LS_BASE_URL = 'glitchkit.traffic.baseUrl';
 const LS_MAC = 'glitchkit.traffic.mac';
@@ -182,9 +182,56 @@ export function TrafficPanel() {
               options={[
                 { value: 'waterfall', label: 'waterfall (time × host)' },
                 { value: 'raster', label: 'byte raster (payloads)' },
+                { value: 'flowfield', label: 'flow field (hosts as clouds)' },
+                { value: 'timing', label: 'timing (rhythm ribbon)' },
+                { value: 'hilbert', label: 'hilbert (bytes on a curve)' },
               ]}
             />
           </Field>
+
+          {doc.traffic.mapping === 'flowfield' && (
+            <>
+              <Field label="Palette">
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {(Object.keys(palettesUI) as PaletteName[]).map((name) => {
+                    const pal = palettesUI[name];
+                    const selected = doc.palette === name;
+                    return (
+                      <div
+                        key={name}
+                        title={name}
+                        onClick={() => dispatch({ type: 'PATCH', patch: { palette: name } })}
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 10,
+                          background: `linear-gradient(135deg, ${pal.from}, ${pal.to})`,
+                          cursor: 'pointer',
+                          boxShadow: selected
+                            ? `0 0 0 2px ${colors.windowBg}, 0 0 0 4px ${colors.accent}`
+                            : '0 0 0 1px rgba(255,255,255,0.15)',
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              </Field>
+              <Slider
+                label="Gamma"
+                value={doc.gamma}
+                min={0.5}
+                max={2.5}
+                step={0.1}
+                onChange={(v) => dispatch({ type: 'PATCH', patch: { gamma: v }, historyKey: 'gamma' })}
+              />
+              <ToggleRow
+                label="Invert"
+                checked={doc.invert}
+                onChange={(v) => dispatch({ type: 'PATCH', patch: { invert: v } })}
+                onColor={colors.accent}
+              />
+            </>
+          )}
           <Footnote>
             captures run on your router, stay on this machine, and are never written into recipes or exports —
             the picture is the only thing that leaves. Encrypted traffic renders as noise; the legible rows are

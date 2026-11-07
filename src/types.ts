@@ -1,5 +1,5 @@
 export type Generator = 'noise' | 'reaction';
-export type TrafficMapping = 'waterfall' | 'raster';
+export type TrafficMapping = 'waterfall' | 'raster' | 'flowfield' | 'timing' | 'hilbert';
 
 /**
  * Compact network-capture digest, produced by tvwatch's traffic_digest.py and

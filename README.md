@@ -47,9 +47,13 @@ any PNG or JPEG.
 bridge ([tvwatch](https://github.com/The-Brimo/tvwatch)'s `traffic_server.py`),
 lists every device on your router, captures one device's traffic for N seconds,
 and renders the capture as the base image — a **waterfall** (time × remote host:
-telemetry beacons are metronome ticks, streaming is chunk-fetch dashes) or a
+telemetry beacons are metronome ticks, streaming is chunk-fetch dashes), a
 **byte raster** (raw payload bytes, one packet per row: encrypted traffic is
-noise, plaintext protocols are legible structure). A smart TV idling, a phone
+noise, plaintext protocols are legible structure), a **flow field** (every host
+hashed to a stable position, traffic bloomed into glowing clouds, coloured by
+the app's palettes), a **timing ribbon** (the capture read like text: silence
+as dark runs, packets as ticks), or a **hilbert walk** (payload bytes on a
+space-filling curve, so protocol structure becomes blobs). A smart TV idling, a phone
 backgrounding, and a video stream produce completely different raw material.
 The capture never leaves your machine and is never written into recipes or
 export metadata — the picture is the only thing that leaves.

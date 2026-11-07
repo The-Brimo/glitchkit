@@ -197,10 +197,13 @@ export const SOURCES: Record<string, Descriptor> = {
     params: {
       mapping: {
         type: 'enum',
-        of: ['waterfall', 'raster'],
+        of: ['waterfall', 'raster', 'flowfield', 'timing', 'hilbert'],
         default: 'waterfall',
-        feel: 'waterfall is time by remote host — telemetry beacons read as metronome ticks, streaming as chunk dashes; raster is raw payload bytes, one packet per row — encrypted traffic is noise, plaintext protocols are legible structure',
+        feel: 'waterfall is time by remote host (telemetry beacons read as metronome ticks, streaming as chunk dashes); raster is raw payload bytes one packet per row (encrypted traffic is noise, plaintext is legible); flowfield hashes each host to a position and blooms traffic into glowing clouds — the only mapping that uses the palette; timing is the capture as a rhythm ribbon, silence as dark runs; hilbert lays payload bytes on a space-filling curve, turning protocol structure into blobs',
       },
+      // flowfield renders through the shared palette pipeline; the other
+      // mappings ignore these three.
+      ...COLOUR_PARAMS,
       width: { type: 'number', min: 16, max: 4096, default: 1600, int: true, promptOmit: true },
       height: { type: 'number', min: 16, max: 4096, default: 900, int: true, promptOmit: true },
     },

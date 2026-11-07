@@ -68,7 +68,13 @@ export async function generateSourceCanvas(doc: Document, opts: RunOptions): Pro
       opts.quality === 'preview'
         ? fitDims(doc.width, doc.height, opts.maxPreviewDim ?? 900)
         : { width: doc.width, height: doc.height };
-    return canvasFromImageData(renderTraffic(doc.trafficDigest, doc.traffic.mapping, target.width, target.height));
+    return canvasFromImageData(
+      renderTraffic(doc.trafficDigest, doc.traffic.mapping, target.width, target.height, {
+        palette: doc.palette,
+        gamma: doc.gamma,
+        invert: doc.invert,
+      })
+    );
   }
   if (doc.sourceMode === 'imported') {
     if (!doc.imageDataURL) return null;
