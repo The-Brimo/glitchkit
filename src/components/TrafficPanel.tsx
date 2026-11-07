@@ -23,7 +23,7 @@ type Status =
   | { kind: 'checking' }
   | { kind: 'ready'; demo: boolean }
   | { kind: 'unavailable'; message: string }
-  | { kind: 'capturing'; seconds: number }
+  | { kind: 'capturing'; seconds: number; startedAt: number }
   | { kind: 'error'; message: string };
 
 /**
@@ -41,6 +41,14 @@ export function TrafficPanel() {
   const [seconds, setSeconds] = useState(30);
   const [status, setStatus] = useState<Status>({ kind: 'checking' });
   const captureRef = useRef<AbortController | null>(null);
+
+  // Ticks only while a capture is running, so the button can count down.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (status.kind !== 'capturing') return;
+    const t = setInterval(() => setTick((n) => n + 1), 250);
+    return () => clearInterval(t);
+  }, [status.kind]);
 
   const initialUrl = useRef(baseUrl);
   useEffect(() => {
@@ -90,7 +98,7 @@ export function TrafficPanel() {
     captureRef.current?.abort();
     const controller = new AbortController();
     captureRef.current = controller;
-    setStatus({ kind: 'capturing', seconds });
+    setStatus({ kind: 'capturing', seconds, startedAt: Date.now() });
     try {
       const d = await fetch(url, { signal: controller.signal }).then((r) => r.json());
       if (d.error) throw new Error(d.error);
@@ -154,7 +162,14 @@ export function TrafficPanel() {
           <Slider label="Listen for" value={seconds} min={10} max={120} step={5} unit="s" onChange={setSeconds} />
           <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
             <PrimaryButton disabled={busy || !mac || status.kind === 'checking'} onClick={capture}>
-              {busy ? `Capturing ~${status.kind === 'capturing' ? status.seconds : seconds}s…` : 'Capture'}
+              {status.kind === 'capturing'
+                ? (() => {
+                    const left = Math.ceil(status.seconds - (Date.now() - status.startedAt) / 1000);
+                    // The listen window is over but the router is still handing
+                    // the bytes back and the digest is being built.
+                    return left > 0 ? `Capturing — ${left}s left` : 'Digesting…';
+                  })()
+                : 'Capture'}
             </PrimaryButton>
             {ready && status.demo && (
               <SecondaryButton onClick={demoCapture} style={{ flex: '0 0 auto', padding: '0 12px' }}>

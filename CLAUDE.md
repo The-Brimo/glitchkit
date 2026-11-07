@@ -36,7 +36,8 @@ implementation deliberately diverges).
   through fieldToImageData, so palette/gamma/invert are live for it and ride in
   traffic recipes), timing (the capture as a ribbon: dark runs for silence, lit
   runs for packets, log on both), and hilbert (payload bytes on a Hilbert curve
-  over a power-of-two square stretched to the canvas — the reaction-sim trade).
+  over a power-of-two square stretched to the canvas — the reaction-sim trade;
+  the curve strides the WHOLE byte stream evenly, never just its head).
   `traffic.ts` is the canonical implementation; tvwatch's `render_digest.py`
   mirrors only waterfall and raster. The digest comes from tvwatch's localhost
   bridge (`~/claude/tvwatch/traffic_server.py`, port 8954, launch-config name

@@ -31,11 +31,13 @@ import { hash2 } from './rng';
  * Steady telemetry reads as sparse ticks in darkness, segmented streaming as
  * slabs between long gaps, browsing as clustered bursts.
  *
- * hilbert — sampled payload bytes laid along a Hilbert curve on the largest
- * power-of-two square the data can fill, then scaled to the canvas (a square
- * stretched onto the frame, same accepted trade as the reaction sim).
- * Sequential locality survives in 2D, so protocol structure becomes blobs and
- * veins instead of raster's stripes.
+ * hilbert — the sampled payload bytes laid along a Hilbert curve, then scaled
+ * to the canvas (a square stretched onto the frame, same accepted trade as the
+ * reaction sim). The WHOLE stream is mapped: the curve walks its cells in
+ * order and reads the stream at an even stride, so a stream larger than the
+ * square is evenly thinned and a smaller one evenly stretched — never cropped
+ * to its head. Sequential locality survives in 2D, so protocol structure
+ * becomes blobs and veins instead of raster's stripes.
  *
  * waterfall and raster mirror tvwatch's render_digest.py; the three field
  * mappings exist only here, and this file is the canonical implementation.
@@ -308,39 +310,36 @@ function timing(d: TrafficDigest, width: number, height: number): ImageData {
 
 function hilbert(d: TrafficDigest, width: number, height: number): ImageData {
   // Flatten the sampled payloads into one byte stream with per-byte direction.
+  // An earlier version read the stream sequentially and sized the square with
+  // headroom, which silently dropped up to three quarters of the stream's
+  // tail; materialising the stream and striding it evenly maps all of it.
   let total = 0;
   for (const [, hex] of d.payloads) total += hex.length >> 1;
   if (total === 0) {
     const empty = new Uint8ClampedArray(3).fill(5);
     return scaleNearest(empty, 1, 1, width, height);
   }
+  const stream = new Uint8ClampedArray(total);
+  const dirs = new Uint8Array(total);
+  let w = 0;
+  for (const [pktIdx, hex] of d.payloads) {
+    const out = d.packets[pktIdx] ? d.packets[pktIdx][2] : 0;
+    const n = hex.length >> 1;
+    for (let i = 0; i < n; i++) {
+      stream[w] = parseInt(hex.substr(i * 2, 2), 16);
+      dirs[w] = out;
+      w++;
+    }
+  }
 
-  // Largest power-of-two square the stream can cover, so the curve has no
-  // dead corner; tiny captures repeat their stream instead (min side 64).
+  // Largest power-of-two square not exceeding the stream (min 64, max 1024):
+  // at most one byte per cell, and the even stride below covers the rest.
   let side = 64;
-  while (side * 2 <= 1024 && side * side * 4 <= total) side *= 2;
+  while (side * 2 <= 1024 && (side * 2) * (side * 2) <= total) side *= 2;
 
   const cells = side * side;
   const nat = new Uint8ClampedArray(cells * 3);
-
-  // Walk the curve cell by cell, consuming the byte stream (repeating if the
-  // capture is smaller than the square).
-  let row = 0;
-  let col = 0; // position within current payload row
-  const byteAt = (): [number, number] => {
-    // Sequential reader with wraparound.
-    while (true) {
-      const [pktIdx, hex] = d.payloads[row];
-      const n = hex.length >> 1;
-      if (col < n) {
-        const v = parseInt(hex.substr(col * 2, 2), 16);
-        col++;
-        return [v, d.packets[pktIdx] ? d.packets[pktIdx][2] : 0];
-      }
-      col = 0;
-      row = (row + 1) % d.payloads.length;
-    }
-  };
+  const step = total / cells;
 
   for (let i = 0; i < cells; i++) {
     // d2xy: standard iterative Hilbert index-to-position.
@@ -363,8 +362,8 @@ function hilbert(d: TrafficDigest, width: number, height: number): ImageData {
       y += s * ry;
       t >>= 2;
     }
-    const [v, out] = byteAt();
-    const [cr, cg, cb] = inkFor(v, out);
+    const si = Math.min(total - 1, Math.floor(i * step));
+    const [cr, cg, cb] = inkFor(stream[si], dirs[si]);
     const o = (y * side + x) * 3;
     nat[o] = cr;
     nat[o + 1] = cg;
