@@ -92,6 +92,21 @@ implementation deliberately diverges).
 
 ## Hard-won invariants — do not regress
 
+- **Sigil is one-way, and the architecture is the guarantee.** The phrase and
+  salt exist only in SigilControls' component state during charging; the step's
+  params carry the eight SHA-256 sub-seeds and the visible knobs, nothing else.
+  Never add the phrase, salt, reduction, or anything derived-but-reversible to
+  params, logs, storage, cache keys, or export metadata — params flow into
+  recipes and PNG/JPEG metadata by design. Verified by scanning exported file
+  bytes, recipe JSON and DevTools storage for the phrase, its reduction and the
+  salt (all absent; seeds round-trip with zero warnings). Sub-seeds are opaque:
+  the generator must never invent them (promptOmit) and the UI never edits them
+  except by charging. Default seeds are SHA-256 of the empty phrase. The
+  measured floor numbers: reduction "i am focused" -> "mfcsd", Hermitian
+  imaginary residue ~9e-16, 512 texture in 26ms (budget 200ms), one-character
+  avalanche flips 84% of texture pixels, strength 0 is an exact no-op for
+  displace/mask/spectral (blend mode replaces the frame by design, like field).
+
 - `jpegBytes.sanitizeScanRegion` must stay **surgical**: rewrite only 0xFF bytes
   NOT followed by 0x00 (stuffing) or 0xD0–0xD7 (restart markers). A blanket
   rewrite once destroyed every image — it touched ~37 valid stuffed pairs per

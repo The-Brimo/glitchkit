@@ -14,6 +14,7 @@ import type {
   ScanParams,
   GlyphParams,
   ContourParams,
+  SigilParams,
   BlendMode,
   StepType,
 } from '../types';
@@ -33,6 +34,7 @@ export const STEP_LABELS: Record<StepType, string> = {
   scan: 'Scan / CRT',
   glyphs: 'Glyph Spill',
   contour: 'Contour Trace',
+  sigil: 'Sigil',
 };
 
 export const STEP_DEFAULTS = {
@@ -101,6 +103,22 @@ export const STEP_DEFAULTS = {
     smooth: 2,
     ink: 'graded',
   }),
+  // Default seeds are SHA-256 of the empty phrase, unsalted — the blank sigil.
+  // Charging a phrase in the panel overwrites them.
+  sigil: (): SigilParams => ({
+    s0: 0xe3b0c442,
+    s1: 0x98fc1c14,
+    s2: 0x9afbf4c8,
+    s3: 0x996fb924,
+    s4: 0x27ae41e4,
+    s5: 0x649b934c,
+    s6: 0xa495991b,
+    s7: 0x7852b855,
+    coherence: 0.3,
+    applyMode: 'displace',
+    strength: 50,
+    size: 512,
+  }),
 };
 
 /**
@@ -133,6 +151,7 @@ export const ADD_TRANSFORM_OPTIONS: { type: StepType; label: string }[] = [
   { type: 'scan', label: 'Scan / CRT (screen mask)' },
   { type: 'glyphs', label: 'Glyph Spill (terminal glyphs)' },
   { type: 'contour', label: 'Contour Trace (iso lines / edges)' },
+  { type: 'sigil', label: 'Sigil (charge a phrase)' },
   { type: 'pixelsort', label: 'Pixel Sort' },
   { type: 'databend', label: 'Databend' },
   { type: 'channelshift', label: 'Channel Shift' },

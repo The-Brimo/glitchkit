@@ -37,7 +37,8 @@ export type StepType =
   | 'feedback'
   | 'scan'
   | 'glyphs'
-  | 'contour';
+  | 'contour'
+  | 'sigil';
 
 export type BlendMode =
   | 'normal'
@@ -148,6 +149,29 @@ export interface ScanParams {
   rollPos: number; // 0..100 — vertical position of the bar
 }
 
+export type SigilApply = 'displace' | 'mask' | 'blend' | 'spectral';
+
+/**
+ * A sigil step carries only DERIVED entropy: eight uint32 sub-seeds from
+ * SHA-256(reduced phrase + salt), written by the panel at charge time. The
+ * phrase and salt themselves must never appear in params (params flow into
+ * recipes and export metadata).
+ */
+export interface SigilParams {
+  s0: number;
+  s1: number;
+  s2: number;
+  s3: number;
+  s4: number;
+  s5: number;
+  s6: number;
+  s7: number;
+  coherence: number; // 0..1 — phase structure
+  applyMode: SigilApply;
+  strength: number; // 0..100
+  size: number; // FFT grid, snapped to a power of two 128..1024
+}
+
 export type ContourMode = 'iso' | 'edge';
 export type ContourInk = 'graded' | 'white' | 'sample';
 
@@ -204,7 +228,8 @@ export type StepParams =
   | FeedbackParams
   | ScanParams
   | GlyphParams
-  | ContourParams;
+  | ContourParams
+  | SigilParams;
 
 export interface Step {
   id: string;

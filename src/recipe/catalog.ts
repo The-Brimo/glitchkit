@@ -38,6 +38,7 @@ import type {
   ScanParams,
   GlyphParams,
   ContourParams,
+  SigilParams,
 } from '../types';
 
 /**
@@ -83,7 +84,20 @@ const D = {
   scan: STEP_DEFAULTS.scan() as ScanParams,
   glyphs: STEP_DEFAULTS.glyphs() as GlyphParams,
   contour: STEP_DEFAULTS.contour() as ContourParams,
+  sigil: STEP_DEFAULTS.sigil() as SigilParams,
 };
+
+/** A sigil sub-seed: a full uint32 derived from the charged phrase's hash.
+ * promptOmit for the same reason as seeds — a model must never invent them —
+ * and because they are one-way derivatives of something the user typed. */
+const sigilSeedSpec = (dflt: number): ParamSpec => ({
+  type: 'number',
+  min: 0,
+  max: 4294967295,
+  default: dflt,
+  int: true,
+  promptOmit: true,
+});
 
 /** Seeds are filled client-side so repeated generations vary. */
 const seedSpec = (dflt: number): ParamSpec => ({
@@ -709,6 +723,47 @@ export const TRANSFORMS: Record<string, Descriptor> = {
       },
     },
   },
+  sigil: {
+    summary:
+      'A phrase, reduced and salted, hashed into seeds that build a frequency-domain texture (inverse FFT of a seeded spectrum), applied to the image. The phrase is never stored — these params carry only its one-way derivative. Reach for it when the ask mentions sigils, intentions, talismans, or "encode this phrase into the image".',
+    params: {
+      ...Object.fromEntries(
+        (['s0', 's1', 's2', 's3', 's4', 's5', 's6', 's7'] as const).map((k) => [
+          k,
+          sigilSeedSpec(D.sigil[k]),
+        ])
+      ),
+      coherence: {
+        type: 'number',
+        min: 0,
+        max: 1,
+        default: D.sigil.coherence,
+        feel: 'phase structure: 0 is pure seeded texture, 0.3 shows interference patterns, 0.8+ becomes figurative — rings, spirals and standing waves',
+      },
+      applyMode: {
+        type: 'enum',
+        of: ['displace', 'mask', 'blend', 'spectral'],
+        default: D.sigil.applyMode,
+        feel: 'displace tears the image along the sigil; mask swallows it where the sigil runs dark; blend outputs the raw texture for the step blend to composite; spectral imprints the sigil onto the image’s own frequency spectrum — the subtlest and strangest',
+      },
+      strength: {
+        type: 'number',
+        min: 0,
+        max: 100,
+        default: D.sigil.strength,
+        int: true,
+        feel: '0 is a true no-op (except blend, where it flattens the texture to grey); 30 is legible influence, 100 fully possessed',
+      },
+      size: {
+        type: 'number',
+        min: 128,
+        max: 1024,
+        default: D.sigil.size,
+        int: true,
+        promptOmit: true,
+      },
+    },
+  },
 };
 
 /* ── Chain guidance ──────────────────────────────────────────────── */
@@ -732,6 +787,7 @@ export const CHAIN_NOTES = [
   'feedback does not degrade the image the way the byte-level steps do, so it is safe late in a chain, including after halftone.',
   'scan belongs LAST, or very near it. It is the screen the finished image is being displayed on, so anything after it is compositing on top of the glass — and putting a byte-level step after it is actively bad, since a fine regular mask is close to worst-case input for JPEG compression, the same reason halftone must come after databend rather than before.',
   'scan, halftone and glyphs all impose a regular grid and fight each other for the same visual role. Pick one finisher, or give them clearly different pitches so the result reads as texture rather than moire.',
+  'sigil is seeded from a hashed phrase the user charges in the panel; its seeds are opaque and must never be invented or edited. Its displace mode composes like displace, its blend mode composes like field.',
   'contour reads structure, so what precedes it decides everything: after a field step it contours the generated texture, after pixelsort it outlines the streaks. It pairs naturally with feedback (smears the linework into trails) and is an alternative finisher to the grid steps — lines instead of cells.',
   'glyphs belongs at or near the end for the same reason as scan: it is a re-rendering of the finished image, and a fine grid of type is terrible input for byte-level corruption. glyphs -> feedback is the one good exception — it smears the type into phosphor trails.',
   'feedback needs edges to smear. On a hard-edged frame (after halftone, sliceshuffle or a heavy pixelsort) it transforms the image; on a soft cloudy one it barely registers, because offset copies of a cloud average back into the same cloud. If a chain is all soft gradients, put something hard-edged before the feedback or skip it.',

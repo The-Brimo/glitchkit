@@ -86,6 +86,7 @@ a step to read what it was handed:
 | Scan / CRT | no | Synthesised screen mask: scanlines, Trinitron-style aperture grille, or shadow-mask triads, with an optional hum bar. Created with multiply, because a mask is white where light passes |
 | Glyph Spill | yes | Re-renders the image as terminal glyphs — a literal hexdump (each cell prints the high nibble of its own luma), block shading, an ASCII ramp, or binary — with seeded per-cell corruption that keeps tone intact |
 | Contour Trace | yes | Lines traced along iso-luma bands (a topographic map of brightness) or Sobel edges. The one transform with no seed: fully deterministic |
+| Sigil | yes | A phrase, reduced and salted, hashed into seeds that build an inverse-FFT texture, applied as displacement, a gate, a layer, or a spectral imprint on the image's own frequencies. **One-way**: the phrase is cleared the moment it is charged and never stored — recipes and exports carry only SHA-256-derived seeds |
 
 Each step has a blend mode (normal / screen / multiply / overlay / difference /
 lighten / darken) and opacity, compositing its output back over its input. Order

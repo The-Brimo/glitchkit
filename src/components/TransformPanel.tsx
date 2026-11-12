@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useAppState } from '../store/AppState';
 import { STEP_LABELS, AUDIO_LABELS } from '../pipeline/stepTypes';
+import { deriveSeeds } from '../pipeline/sigil';
 import type {
   Step,
   PixelSortParams,
@@ -16,9 +18,10 @@ import type {
   ScanParams,
   GlyphParams,
   ContourParams,
+  SigilParams,
   BlendMode,
 } from '../types';
-import { Field, SelectField, Slider, NumberField, Toggle, SectionHeader, DividerLine, Footnote, DestructiveButton } from './controls';
+import { Field, SelectField, Slider, NumberField, Toggle, SectionHeader, DividerLine, Footnote, DestructiveButton, PrimaryButton } from './controls';
 import { colors } from '../theme';
 
 const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
@@ -60,6 +63,7 @@ export function TransformPanel({ step }: { step: Step }) {
       {step.type === 'scan' && <ScanControls params={step.params as ScanParams} patchParam={patchParam} />}
       {step.type === 'glyphs' && <GlyphControls params={step.params as GlyphParams} patchParam={patchParam} />}
       {step.type === 'contour' && <ContourControls params={step.params as ContourParams} patchParam={patchParam} />}
+      {step.type === 'sigil' && <SigilControls params={step.params as SigilParams} patchParam={patchParam} />}
 
       <DividerLine />
       <SectionHeader>Compositing</SectionHeader>
@@ -86,6 +90,150 @@ export function TransformPanel({ step }: { step: Step }) {
 }
 
 type Patch = (key: string, value: unknown, historyKey?: string) => void;
+
+const maskedInput: React.CSSProperties = {
+  height: 30,
+  borderRadius: 8,
+  border: `1px solid ${colors.hairlineStrong}`,
+  fontSize: 13,
+  padding: '0 8px',
+  background: colors.controlFill,
+  color: '#f2f2f7',
+  width: '100%',
+  boxSizing: 'border-box',
+  fontFamily: 'inherit',
+};
+
+/**
+ * The charge ritual. The phrase and salt live in this component's state for
+ * the duration of one derivation and are cleared the moment the seeds are
+ * written into the step — they must never reach params, storage, logs, or
+ * exports. The seeds the step keeps are a one-way SHA-256 derivative.
+ */
+function SigilControls({ params, patchParam }: { params: SigilParams; patchParam: Patch }) {
+  const [phrase, setPhrase] = useState('');
+  const [reduce, setReduce] = useState(true);
+  const [useSecret, setUseSecret] = useState(false);
+  const [secret, setSecret] = useState('');
+  const [useMoment, setUseMoment] = useState(false);
+  const [useRandom, setUseRandom] = useState(true);
+  const [keepSalt, setKeepSalt] = useState(false);
+  const [shownSalt, setShownSalt] = useState<string | null>(null);
+  const [charged, setCharged] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const charge = async () => {
+    if (!phrase.trim()) return;
+    const parts: string[] = [];
+    if (useSecret && secret) parts.push(secret);
+    if (useMoment) parts.push(String(performance.timeOrigin + performance.now()));
+    if (useRandom) {
+      const b = new Uint8Array(16);
+      crypto.getRandomValues(b);
+      parts.push([...b].map((v) => v.toString(16).padStart(2, '0')).join(''));
+    }
+    const salt = parts.join('.');
+    const seeds = await deriveSeeds(phrase, salt, reduce);
+
+    // Forget first, then write: the phrase is gone before anything renders.
+    setPhrase('');
+    setSecret('');
+    setShownSalt(keepSalt ? salt : null);
+    setCharged(true);
+    setCopied(false);
+
+    const keys = ['s0', 's1', 's2', 's3', 's4', 's5', 's6', 's7'];
+    keys.forEach((k, i) => patchParam(k, seeds[i], 'sigilcharge'));
+  };
+
+  return (
+    <>
+      <SectionHeader>Charge</SectionHeader>
+      <Field label="Phrase — never stored, cleared on charge">
+        <input
+          type="password"
+          value={phrase}
+          onChange={(e) => {
+            setPhrase(e.target.value);
+            setCharged(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') charge();
+          }}
+          placeholder="an intention"
+          autoComplete="off"
+          style={maskedInput}
+        />
+      </Field>
+      <div onClick={() => setReduce(!reduce)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 10 }}>
+        <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', cursor: 'pointer' }}>Reduce (drop vowels + repeats)</label>
+        <Toggle checked={reduce} onChange={setReduce} />
+      </div>
+      <div onClick={() => setUseSecret(!useSecret)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 10 }}>
+        <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', cursor: 'pointer' }}>Salt: personal secret</label>
+        <Toggle checked={useSecret} onChange={setUseSecret} />
+      </div>
+      {useSecret && (
+        <Field label="Secret">
+          <input type="password" value={secret} onChange={(e) => setSecret(e.target.value)} autoComplete="off" style={maskedInput} />
+        </Field>
+      )}
+      <div onClick={() => setUseMoment(!useMoment)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 10 }}>
+        <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', cursor: 'pointer' }}>Salt: this moment</label>
+        <Toggle checked={useMoment} onChange={setUseMoment} />
+      </div>
+      <div onClick={() => setUseRandom(!useRandom)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 10 }}>
+        <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', cursor: 'pointer' }}>Salt: random</label>
+        <Toggle checked={useRandom} onChange={setUseRandom} />
+      </div>
+      <div onClick={() => setKeepSalt(!keepSalt)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 12 }}>
+        <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', cursor: 'pointer' }}>Reveal salt after charging</label>
+        <Toggle checked={keepSalt} onChange={setKeepSalt} />
+      </div>
+      <PrimaryButton disabled={!phrase.trim()} onClick={charge}>
+        {charged ? 'Charged — charge again' : 'Charge'}
+      </PrimaryButton>
+      {charged && !useSecret && !useMoment && !useRandom && (
+        <div style={{ fontSize: 11, color: '#ffb340', marginTop: 8, lineHeight: 1.5 }}>
+          charged without salt — a short phrase alone can be brute-forced by anyone with glitchkit
+        </div>
+      )}
+      {shownSalt && (
+        <div style={{ marginTop: 10, fontSize: 10, fontFamily: 'ui-monospace, Menlo, monospace', color: colors.textSecondary, wordBreak: 'break-all', lineHeight: 1.5 }}>
+          salt: {shownSalt}
+          <div
+            onClick={() => navigator.clipboard.writeText(shownSalt).then(() => setCopied(true))}
+            style={{ color: colors.accent, cursor: 'pointer', marginTop: 4, fontFamily: 'inherit' }}
+          >
+            {copied ? 'copied — keep it somewhere safe' : 'copy salt (needed to ever re-derive this sigil)'}
+          </div>
+        </div>
+      )}
+
+      <DividerLine />
+      <SectionHeader>Form</SectionHeader>
+      <Field label="Apply as">
+        <SelectField
+          value={params.applyMode}
+          onChange={(v) => patchParam('applyMode', v)}
+          options={[
+            { value: 'displace', label: 'displacement' },
+            { value: 'mask', label: 'mask (gate the image)' },
+            { value: 'blend', label: 'texture (composite via blend)' },
+            { value: 'spectral', label: 'spectral imprint' },
+          ]}
+        />
+      </Field>
+      <Slider label="Strength" value={params.strength} min={0} max={100} step={1} unit="%" onChange={(v) => patchParam('strength', v, 'sgstr')} />
+      <Slider label="Coherence" value={params.coherence} min={0} max={1} step={0.05} onChange={(v) => patchParam('coherence', v, 'sgcoh')} />
+      <Footnote>
+        the phrase is reduced, salted and hashed; only the hash's seeds live in this step, its recipes and its
+        exports — one-way by construction. Discarded salts make a sigil unverifiable forever; revealed salts let
+        you re-derive it. Coherence bends seeded noise toward figurative interference.
+      </Footnote>
+    </>
+  );
+}
 
 function ContourControls({ params, patchParam }: { params: ContourParams; patchParam: Patch }) {
   return (

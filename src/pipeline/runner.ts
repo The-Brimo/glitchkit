@@ -11,6 +11,7 @@ import { feedback } from './feedback';
 import { scanMask } from './scan';
 import { glyphSpill } from './glyphs';
 import { contourTrace } from './contour';
+import { applySigil } from './sigil';
 import { renderTraffic } from './traffic';
 import { jpegLoop } from './jpegLoop';
 import { applyDatabend } from './databend';
@@ -179,6 +180,11 @@ async function runTransform(
     }
     if (step.type === 'sliceshuffle') {
       const out = sliceShuffle(imageDataFromCanvas(input), step.params as any);
+      return { canvas: canvasFromImageData(out) };
+    }
+    if (step.type === 'sigil') {
+      // Displacement amplitude rides the canvas size, so no renderScale needed.
+      const out = applySigil(imageDataFromCanvas(input), step.params as any);
       return { canvas: canvasFromImageData(out) };
     }
     if (step.type === 'contour') {
