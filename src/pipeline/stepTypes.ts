@@ -118,6 +118,8 @@ export const STEP_DEFAULTS = {
     applyMode: 'displace',
     strength: 50,
     size: 512,
+    phase: 0,
+    period: 12,
   }),
 };
 

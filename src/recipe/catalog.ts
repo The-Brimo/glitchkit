@@ -762,6 +762,21 @@ export const TRANSFORMS: Record<string, Descriptor> = {
         int: true,
         promptOmit: true,
       },
+      phase: {
+        type: 'number',
+        min: 0,
+        max: 100,
+        default: D.sigil.phase,
+        feel: 'position in the living cycle — the sigil breathes as phase runs 0 to 100 and loops perfectly back to 0; any value is a reproducible still of the animation',
+      },
+      period: {
+        type: 'number',
+        min: 2,
+        max: 60,
+        default: D.sigil.period,
+        int: true,
+        promptOmit: true, // playback pacing only — it never changes a rendered frame
+      },
     },
   },
 };

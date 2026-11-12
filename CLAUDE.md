@@ -107,6 +107,31 @@ implementation deliberately diverges).
   avalanche flips 84% of texture pixels, strength 0 is an exact no-op for
   displace/mask/spectral (blend mode replaces the frame by design, like field).
 
+- **The living sigil loops exactly, and phase 0 is the pre-animation sigil.**
+  `phase` (0–100) animates the texture two ways, both chosen to be exact
+  identities at phase 100: each spectrum cell's phase drifts 2π·k·(phase/100)
+  where k is a seeded INTEGER per cell (s6 drives it: 25% hold still, 30%
+  each ±1, 7.5% each ±2), and the angular envelope advances one sector-fold
+  (+2π·phase/100 inside the cos, exact because sectors is an integer — and it
+  moves the MAGNITUDE, which is the only reason spectral mode breathes; pure
+  phase drift is invisible to a magnitude-only imprint). Measured: phase 0 vs
+  the pre-animation implementation max |Δ| = 0 (bit-identical, so charged
+  sigils already exported render unchanged), wrap seam max |Δ| 9e-6, motion
+  eases in and out around the cycle (10-step deltas 0.0075–0.10 — drifting
+  waves decohere mid-cycle and re-cohere; that's the organic look, not a bug).
+  `period` is playback pacing only and never changes a rendered frame
+  (promptOmit). Live playback and loop recording live in RenderEngine, not the
+  document: the loop renders doc-with-phase-override on its own wall clock
+  (dispatching phase per frame would STARVE the 220ms trailing debounce and
+  freeze the preview), skips the debounced doc-render while live, and commits
+  the landing phase as one undo entry on stop. The loop must ALWAYS await a
+  macrotask between frames — runPipeline resolves entirely in microtasks on a
+  sync chain, and the first version hard-froze the tab (even navigation died).
+  Recording mirrors preview frames into an offscreen canvas MediaRecorder for
+  exactly one period (measured seam: 0.6% of pixels differ first-vs-last frame
+  vs 13.8% mid-cycle); a cancelled recording is discarded, not saved — a
+  partial cycle wouldn't loop.
+
 - `jpegBytes.sanitizeScanRegion` must stay **surgical**: rewrite only 0xFF bytes
   NOT followed by 0x00 (stuffing) or 0xD0–0xD7 (restart markers). A blanket
   rewrite once destroyed every image — it touched ~37 valid stuffed pairs per

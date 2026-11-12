@@ -124,13 +124,20 @@ interface SigilTexture {
  * Builds F(u,v): radial bands x angular sectors with 1/f falloff; phase blends
  * seeded noise toward a structured spiral as coherence rises. Hermitian
  * symmetry is enforced so the inverse transform is real-valued.
+ *
+ * `phase` in [0,1) is the living-sigil cycle position. Each cell's phase
+ * rotates by 2π·k·phase where k is a seeded INTEGER drift (s6 drives it), and
+ * the angular structure spins one full revolution per cycle — both return to
+ * identity at phase 1, so the animation loops perfectly, and phase 0 renders
+ * bit-identical to a pre-animation sigil (the drift term is exactly zero).
  */
-function buildTexture(seeds: number[], n: number, coherence: number): SigilTexture {
+function buildTexture(seeds: number[], n: number, coherence: number, phase: number): SigilTexture {
   const rBand = mulberry32(seeds[0]);
   const rAng = mulberry32(seeds[1]);
   const rPhase = mulberry32(seeds[2]);
   const rStruct = mulberry32(seeds[3]);
   const rShape = mulberry32(seeds[4]);
+  const rLive = mulberry32(seeds[6]);
 
   const bandCount = 2 + Math.floor(rBand() * 4);
   const bands = Array.from({ length: bandCount }, () => ({
@@ -139,7 +146,11 @@ function buildTexture(seeds: number[], n: number, coherence: number): SigilTextu
     g: 0.35 + rBand() * 0.65,
   }));
   const sectors = 1 + Math.floor(rAng() * 8);
-  const rot = rAng() * Math.PI * 2;
+  // The angular structure advances one sector-fold per cycle: +2π·phase in
+  // the cos argument is an exact identity at phase 1, so the loop closes. It
+  // moves the MAGNITUDE, which is what lets spectral mode breathe — pure
+  // phase drift is invisible to a magnitude-only imprint.
+  const rot = rAng() * Math.PI * 2 + phase * Math.PI * 2;
   const sharp = 0.6 + rAng() * 3.2;
   const falloff = 0.7 + rShape() * 0.9;
   const spiralK = Math.floor(rStruct() * 7) - 3;
@@ -173,7 +184,13 @@ function buildTexture(seeds: number[], n: number, coherence: number): SigilTextu
 
       const randPh = rPhase() * Math.PI * 2;
       const structPh = spiralK * theta + r * swirl * Math.PI * 2;
-      const ph = randPh * (1 - coherence) + structPh * coherence;
+      // Seeded integer drift: each plane wave slides k whole spatial periods
+      // along its wavevector per cycle (k integer -> exact loop closure).
+      // A quarter of the cells hold still so the motion reads as flow over
+      // structure rather than the whole texture swimming.
+      const dr = rLive();
+      const k_ = dr < 0.25 ? 0 : dr < 0.55 ? 1 : dr < 0.625 ? 2 : dr < 0.925 ? -1 : -2;
+      const ph = randPh * (1 - coherence) + structPh * coherence + k_ * phase * Math.PI * 2;
 
       re[k] = m * Math.cos(ph);
       im[k] = m * Math.sin(ph);
@@ -212,22 +229,29 @@ function buildTexture(seeds: number[], n: number, coherence: number): SigilTextu
   return { tex, mag, imagResidue: maxI / maxR };
 }
 
-// Textures are pure functions of (seeds, size, coherence); memoise the last few
-// so slider drags and re-renders don't recompute a quarter-million-cell FFT.
+// Textures are pure functions of (seeds, size, coherence, phase); memoise the
+// last few so slider drags and re-renders don't recompute a quarter-million-
+// cell FFT. Live playback misses every frame by design — each frame is new.
 const texCache = new Map<string, SigilTexture>();
-function texture(seeds: number[], n: number, coherence: number): SigilTexture {
-  const key = `${seeds.join(',')}:${n}:${coherence.toFixed(3)}`;
+function texture(seeds: number[], n: number, coherence: number, phase: number): SigilTexture {
+  const key = `${seeds.join(',')}:${n}:${coherence.toFixed(3)}:${phase.toFixed(4)}`;
   const hit = texCache.get(key);
   if (hit) return hit;
-  const t = buildTexture(seeds, n, coherence);
+  const t = buildTexture(seeds, n, coherence, phase);
   texCache.set(key, t);
   if (texCache.size > 8) texCache.delete(texCache.keys().next().value!);
   return t;
 }
 
 /** Exposed for the verification harness; not used by the UI. */
-export function sigilTextureFor(seeds: number[], n: number, coherence: number): SigilTexture {
-  return texture(seeds, snapPow2(n), coherence);
+export function sigilTextureFor(seeds: number[], n: number, coherence: number, phase = 0): SigilTexture {
+  return texture(seeds, snapPow2(n), coherence, phaseOf(phase));
+}
+
+/** Param phase (0..100, any real) -> cycle position in [0,1). */
+function phaseOf(raw: number): number {
+  const p = ((raw ?? 0) % 100) / 100;
+  return p < 0 ? p + 1 : p;
 }
 
 function snapPow2(v: number): number {
@@ -270,7 +294,8 @@ export function applySigil(src: ImageData, p: SigilParams): ImageData {
   const coherence = Math.min(1, Math.max(0, p.coherence));
   const strength = Math.min(100, Math.max(0, p.strength)) / 100;
   const mode: SigilApply = p.applyMode;
-  const T = texture(seedsOf(p), n, coherence);
+  const phase = phaseOf(p.phase ?? 0);
+  const T = texture(seedsOf(p), n, coherence, phase);
 
   if (mode === 'blend') {
     // The texture itself, contrast scaled by strength; the step's own blend
@@ -295,7 +320,7 @@ export function applySigil(src: ImageData, p: SigilParams): ImageData {
   if (strength === 0) return new ImageData(new Uint8ClampedArray(data), w, h);
 
   if (mode === 'displace') {
-    const T2 = texture(altSeeds(seedsOf(p)), n, coherence);
+    const T2 = texture(altSeeds(seedsOf(p)), n, coherence, phase);
     // Amplitude rides the canvas size, so preview and export tear identically.
     const amp = strength * 0.12 * Math.min(w, h);
     const out = new Uint8ClampedArray(data.length);

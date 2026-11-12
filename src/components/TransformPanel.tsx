@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAppState } from '../store/AppState';
+import { useRenderEngine } from '../store/RenderEngine';
 import { STEP_LABELS, AUDIO_LABELS } from '../pipeline/stepTypes';
 import { deriveSeeds } from '../pipeline/sigil';
 import type {
@@ -63,7 +64,7 @@ export function TransformPanel({ step }: { step: Step }) {
       {step.type === 'scan' && <ScanControls params={step.params as ScanParams} patchParam={patchParam} />}
       {step.type === 'glyphs' && <GlyphControls params={step.params as GlyphParams} patchParam={patchParam} />}
       {step.type === 'contour' && <ContourControls params={step.params as ContourParams} patchParam={patchParam} />}
-      {step.type === 'sigil' && <SigilControls params={step.params as SigilParams} patchParam={patchParam} />}
+      {step.type === 'sigil' && <SigilControls stepId={step.id} params={step.params as SigilParams} patchParam={patchParam} />}
 
       <DividerLine />
       <SectionHeader>Compositing</SectionHeader>
@@ -110,7 +111,8 @@ const maskedInput: React.CSSProperties = {
  * written into the step — they must never reach params, storage, logs, or
  * exports. The seeds the step keeps are a one-way SHA-256 derivative.
  */
-function SigilControls({ params, patchParam }: { params: SigilParams; patchParam: Patch }) {
+function SigilControls({ stepId, params, patchParam }: { stepId: string; params: SigilParams; patchParam: Patch }) {
+  const { liveSigil, startLiveSigil, stopLiveSigil } = useRenderEngine();
   const [phrase, setPhrase] = useState('');
   const [reduce, setReduce] = useState(true);
   const [useSecret, setUseSecret] = useState(false);
@@ -121,6 +123,9 @@ function SigilControls({ params, patchParam }: { params: SigilParams; patchParam
   const [shownSalt, setShownSalt] = useState<string | null>(null);
   const [charged, setCharged] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const live = liveSigil?.stepId === stepId;
+  const recording = !!live && liveSigil!.recording;
 
   const charge = async () => {
     if (!phrase.trim()) return;
@@ -226,10 +231,34 @@ function SigilControls({ params, patchParam }: { params: SigilParams; patchParam
       </Field>
       <Slider label="Strength" value={params.strength} min={0} max={100} step={1} unit="%" onChange={(v) => patchParam('strength', v, 'sgstr')} />
       <Slider label="Coherence" value={params.coherence} min={0} max={1} step={0.05} onChange={(v) => patchParam('coherence', v, 'sgcoh')} />
+
+      <DividerLine />
+      <SectionHeader>Life</SectionHeader>
+      <Slider
+        label={live ? 'Phase (playing)' : 'Phase'}
+        value={Math.round(params.phase * 10) / 10}
+        min={0}
+        max={100}
+        step={0.5}
+        onChange={(v) => {
+          if (!live) patchParam('phase', v, 'sgphase');
+        }}
+      />
+      <Slider label="Period" value={params.period} min={2} max={60} step={1} unit=" s" onChange={(v) => patchParam('period', v, 'sgperiod')} />
+      <div style={{ display: 'flex', gap: 8 }}>
+        <PrimaryButton onClick={() => (live ? stopLiveSigil() : startLiveSigil(stepId))}>
+          {live && !recording ? 'Stop' : 'Live'}
+        </PrimaryButton>
+        <PrimaryButton onClick={() => (recording ? stopLiveSigil() : startLiveSigil(stepId, true))}>
+          {recording ? `recording… ${liveSigil?.secondsLeft ?? ''}s — cancel` : 'Record one loop'}
+        </PrimaryButton>
+      </div>
       <Footnote>
         the phrase is reduced, salted and hashed; only the hash's seeds live in this step, its recipes and its
         exports — one-way by construction. Discarded salts make a sigil unverifiable forever; revealed salts let
-        you re-derive it. Coherence bends seeded noise toward figurative interference.
+        you re-derive it. Coherence bends seeded noise toward figurative interference. Phase breathes the sigil
+        through one perfect loop per cycle — every value is a reproducible still, and recording captures one full
+        period as a seamlessly looping video.
       </Footnote>
     </>
   );

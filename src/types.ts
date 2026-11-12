@@ -170,6 +170,8 @@ export interface SigilParams {
   applyMode: SigilApply;
   strength: number; // 0..100
   size: number; // FFT grid, snapped to a power of two 128..1024
+  phase: number; // 0..100 — position in the living cycle; 100 wraps to 0 (perfect loop)
+  period: number; // 2..60 — seconds per cycle during live playback / loop recording
 }
 
 export type ContourMode = 'iso' | 'edge';
